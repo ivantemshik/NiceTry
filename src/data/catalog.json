@@ -1,0 +1,124 @@
+{
+  "_comment": "Единый источник данных каталога. Используется: (1) мок-режимом клиентов AppRoute/Dessly до получения реальных ключей, (2) импортёром /api/products/import, (3) seed-скриптом scripts/seed.mjs. Категории и наценка/курс — плейсхолдеры, редактируются в админке. Формула цены: price_rub = ceil(price_usd * usd_to_rub_rate * (1 + markup_percent/100)).",
+  "categories": [
+    { "slug": "steam", "name": "Steam Gift Card", "icon": "🎮", "supplier": "approute", "markup_percent": 14, "usd_to_rub_rate": 80, "sort_order": 1 },
+    { "slug": "psn", "name": "PSN Gift Card", "icon": "🅿️", "supplier": "approute", "markup_percent": 16, "usd_to_rub_rate": 80, "sort_order": 2 },
+    { "slug": "rockstar", "name": "Rockstar", "icon": "⭐", "supplier": "approute", "markup_percent": 15, "usd_to_rub_rate": 80, "sort_order": 3 },
+    { "slug": "roblox", "name": "Roblox", "icon": "🟥", "supplier": "approute", "markup_percent": 17, "usd_to_rub_rate": 80, "sort_order": 4 },
+    { "slug": "appstore", "name": "App Store", "icon": "🍎", "supplier": "approute", "markup_percent": 15, "usd_to_rub_rate": 80, "sort_order": 5 },
+    { "slug": "google", "name": "Google Play", "icon": "▶️", "supplier": "approute", "markup_percent": 15, "usd_to_rub_rate": 80, "sort_order": 6 },
+    { "slug": "wow-time-card", "name": "WoW Time Card", "icon": "🐉", "supplier": "approute", "markup_percent": 13, "usd_to_rub_rate": 80, "sort_order": 7 },
+    { "slug": "blizzard", "name": "Blizzard", "icon": "❄️", "supplier": "approute", "markup_percent": 14, "usd_to_rub_rate": 80, "sort_order": 8 },
+    { "slug": "minecraft", "name": "Minecraft", "icon": "⛏️", "supplier": "approute", "markup_percent": 16, "usd_to_rub_rate": 80, "sort_order": 9 },
+    { "slug": "dessly-games", "name": "Отправка игр / гифтов", "icon": "🎁", "supplier": "dessly", "markup_percent": 18, "usd_to_rub_rate": 82, "sort_order": 10 }
+  ],
+  "approuteServices": [
+    {
+      "id": "svc_steam_giftcard", "name": "Steam Gift Card", "ordersType": "shop", "categorySlug": "steam",
+      "description": "Пополнение кошелька Steam подарочным кодом. Моментальная выдача.",
+      "items": [
+        { "id": "den_steam_5", "name": "$5", "price": 5, "currency": "USD", "inStock": true },
+        { "id": "den_steam_10", "name": "$10", "price": 10, "currency": "USD", "inStock": true },
+        { "id": "den_steam_20", "name": "$20", "price": 20, "currency": "USD", "inStock": true },
+        { "id": "den_steam_50", "name": "$50", "price": 50, "currency": "USD", "inStock": true },
+        { "id": "den_steam_100", "name": "$100", "price": 100, "currency": "USD", "inStock": false }
+      ]
+    },
+    {
+      "id": "svc_steam_topup", "name": "Пополнение Steam (авто)", "ordersType": "dtu", "categorySlug": "steam",
+      "description": "Автоматическое пополнение баланса Steam по логину. Введите сумму в ₽.",
+      "minAmountUsd": 1, "maxAmountUsd": 500,
+      "fields": [ { "key": "account_reference", "name": "Логин Steam", "type": "text", "required": true } ],
+      "items": [ { "id": "den_steam_dtu", "name": "Steam Wallet (open range)", "price": 1, "currency": "USD", "inStock": true } ]
+    },
+    {
+      "id": "svc_psn_giftcard", "name": "PlayStation Network Gift Card", "ordersType": "shop", "categorySlug": "psn",
+      "description": "Пополнение кошелька PSN подарочным кодом.",
+      "items": [
+        { "id": "den_psn_10", "name": "$10", "price": 10, "currency": "USD", "inStock": true },
+        { "id": "den_psn_25", "name": "$25", "price": 25, "currency": "USD", "inStock": true },
+        { "id": "den_psn_50", "name": "$50", "price": 50, "currency": "USD", "inStock": true }
+      ]
+    },
+    {
+      "id": "svc_rockstar_shark", "name": "Rockstar Shark Card (GTA Online)", "ordersType": "shop", "categorySlug": "rockstar",
+      "description": "Внутриигровая валюта GTA Online.",
+      "items": [
+        { "id": "den_rockstar_red", "name": "Red Shark Card", "price": 10, "currency": "USD", "inStock": true },
+        { "id": "den_rockstar_tiger", "name": "Tiger Shark Card", "price": 20, "currency": "USD", "inStock": true },
+        { "id": "den_rockstar_whale", "name": "Whale Shark Card", "price": 50, "currency": "USD", "inStock": true }
+      ]
+    },
+    {
+      "id": "svc_roblox_giftcard", "name": "Roblox Gift Card", "ordersType": "shop", "categorySlug": "roblox",
+      "description": "Robux подарочным кодом.",
+      "items": [
+        { "id": "den_roblox_800", "name": "800 Robux", "price": 10, "currency": "USD", "inStock": true },
+        { "id": "den_roblox_1700", "name": "1700 Robux", "price": 20, "currency": "USD", "inStock": true },
+        { "id": "den_roblox_4500", "name": "4500 Robux", "price": 50, "currency": "USD", "inStock": true }
+      ]
+    },
+    {
+      "id": "svc_appstore_giftcard", "name": "App Store & iTunes Gift Card", "ordersType": "shop", "categorySlug": "appstore",
+      "description": "Подарочная карта Apple App Store / iTunes.",
+      "items": [
+        { "id": "den_appstore_10", "name": "$10", "price": 10, "currency": "USD", "inStock": true },
+        { "id": "den_appstore_25", "name": "$25", "price": 25, "currency": "USD", "inStock": true },
+        { "id": "den_appstore_50", "name": "$50", "price": 50, "currency": "USD", "inStock": true }
+      ]
+    },
+    {
+      "id": "svc_google_giftcard", "name": "Google Play Gift Card", "ordersType": "shop", "categorySlug": "google",
+      "description": "Подарочная карта Google Play.",
+      "items": [
+        { "id": "den_google_10", "name": "$10", "price": 10, "currency": "USD", "inStock": true },
+        { "id": "den_google_25", "name": "$25", "price": 25, "currency": "USD", "inStock": true },
+        { "id": "den_google_50", "name": "$50", "price": 50, "currency": "USD", "inStock": true }
+      ]
+    },
+    {
+      "id": "svc_wow_timecard", "name": "World of Warcraft Time Card", "ordersType": "shop", "categorySlug": "wow-time-card",
+      "description": "Игровое время WoW.",
+      "items": [
+        { "id": "den_wow_30", "name": "30 дней", "price": 15, "currency": "USD", "inStock": true },
+        { "id": "den_wow_60", "name": "60 дней", "price": 30, "currency": "USD", "inStock": true }
+      ]
+    },
+    {
+      "id": "svc_blizzard_giftcard", "name": "Blizzard Battle.net Gift Card", "ordersType": "shop", "categorySlug": "blizzard",
+      "description": "Баланс Battle.net.",
+      "items": [
+        { "id": "den_blizzard_20", "name": "$20", "price": 20, "currency": "USD", "inStock": true },
+        { "id": "den_blizzard_50", "name": "$50", "price": 50, "currency": "USD", "inStock": true }
+      ]
+    },
+    {
+      "id": "svc_minecraft_java", "name": "Minecraft: Java & Bedrock Edition", "ordersType": "shop", "categorySlug": "minecraft",
+      "description": "Лицензионный ключ Minecraft.",
+      "items": [
+        { "id": "den_minecraft_java", "name": "Java & Bedrock Edition", "price": 30, "currency": "USD", "inStock": true }
+      ]
+    }
+  ],
+  "desslyGames": [
+    { "id": "dessly_cyberpunk_2077", "name": "Cyberpunk 2077", "price": 59.99, "currency": "USD", "platform": "Steam", "inStock": true },
+    { "id": "dessly_elden_ring", "name": "Elden Ring", "price": 49.99, "currency": "USD", "platform": "Steam", "inStock": true },
+    { "id": "dessly_baldurs_gate_3", "name": "Baldur's Gate 3", "price": 59.99, "currency": "USD", "platform": "Steam", "inStock": true },
+    { "id": "dessly_ea_fc_25", "name": "EA SPORTS FC 25", "price": 69.99, "currency": "USD", "platform": "Steam", "inStock": true },
+    { "id": "dessly_hogwarts_legacy", "name": "Hogwarts Legacy", "price": 49.99, "currency": "USD", "platform": "Steam", "inStock": false }
+  ],
+  "manualProducts": [
+    {
+      "name": "WoW: Буст персонажа до 70 ур. (ручная выдача)", "categorySlug": "blizzard", "type": "manual",
+      "price_rub": 2490, "description": "Прокачка персонажа. После оплаты заказ передаётся менеджеру; срок выдачи — до 24 часов."
+    },
+    {
+      "name": "Пополнение приватного Minecraft-сервера (ручное)", "categorySlug": "minecraft", "type": "topup_manual",
+      "description": "Введите сумму в ₽. После оплаты заказ обрабатывает менеджер вручную."
+    },
+    {
+      "name": "Активация игры на ваш аккаунт (ручная)", "categorySlug": "dessly-games", "type": "manual",
+      "price_rub": 990, "description": "Менеджер активирует игру на ваш аккаунт. Укажите данные при оформлении."
+    }
+  ]
+}

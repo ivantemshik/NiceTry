@@ -48,12 +48,12 @@ export default function ProductPage() {
         return
       }
 
-      // Проверка обязательных полей
-      if (product.supplier_fields) {
+      // Проверка обязательных полей (ключ хранения — field.key, лейбл — field.name)
+      if (product.supplier_fields && Array.isArray(product.supplier_fields)) {
         const fields = product.supplier_fields as any[]
         for (const field of fields) {
-          if (field.required && !formData[field.name]) {
-            alert(`Заполните поле: ${field.label}`)
+          if (field.required && !formData[field.key]) {
+            alert(`Заполните поле: ${field.name}`)
             return
           }
         }
@@ -232,16 +232,16 @@ export default function ProductPage() {
               {product.supplier_fields &&
                 Array.isArray(product.supplier_fields) &&
                 product.supplier_fields.map((field: any) => (
-                  <div key={field.name} className="mb-4">
+                  <div key={field.key} className="mb-4">
                     <label className="block text-sm font-semibold text-navy mb-2">
-                      {field.label} {field.required && '*'}
+                      {field.name} {field.required && '*'}
                     </label>
                     <Input
                       type={field.type || 'text'}
                       placeholder={field.placeholder || ''}
-                      value={formData[field.name] || ''}
+                      value={formData[field.key] || ''}
                       onChange={(e) =>
-                        setFormData({ ...formData, [field.name]: e.target.value })
+                        setFormData({ ...formData, [field.key]: e.target.value })
                       }
                       required={field.required}
                     />

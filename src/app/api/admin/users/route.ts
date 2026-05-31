@@ -1,29 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth/admin'
 
 // GET /api/admin/users - список пользователей
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
-    // Проверка прав администратора
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single()
-
-    if (!userData?.is_admin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const guard = await requireAdmin()
+    if (!guard.ok) return guard.response
+    const supabase = guard.admin
 
     // Параметры фильтрации
     const searchParams = request.nextUrl.searchParams
@@ -38,7 +21,9 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (search) {
-      query = query.or(`email.ilike.%${search}%,telegram_username.ilike.%${search}%`)
+      // Экранируем спецсимволы PostgREST-фильтра (,()) во избежание инъекции в .or().
+      const safe = search.replace(/[,()*]/g, ' ').trim()
+      if (safe) query = query.or(`email.ilike.%${safe}%,telegram_username.ilike.%${safe}%`)
     }
 
     const { data: users, error } = await query

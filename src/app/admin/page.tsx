@@ -1,8 +1,11 @@
-import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import Link from 'next/link'
 
+// Дашборд читает агрегаты по всем заказам/пользователям. Доступ к странице уже ограничен
+// admin/layout.tsx (проверка is_admin + редирект), поэтому здесь безопасно использовать
+// service-role клиент, который обходит RLS (иначе под RLS были бы видны только свои строки).
 export default async function AdminDashboard() {
-  const supabase = await createClient()
+  const supabase = supabaseAdmin
 
   // Получаем статистику
   const today = new Date()

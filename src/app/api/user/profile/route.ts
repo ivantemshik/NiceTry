@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
-// Генерация уникального реферального кода
+// Генерация уникального реферального кода (8 символов A-Z0-9)
 function generateReferralCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let code = ''
@@ -12,130 +12,121 @@ function generateReferralCode(): string {
   return code
 }
 
-// GET /api/user/profile - получить профиль текущего пользователя
+// GET /api/user/profile - получить (или создать при первом входе) профиль текущего пользователя.
+//
+// Аутентификация — по сессии пользователя; чтение/создание профиля — через service-role
+// (supabaseAdmin), чтобы не зависеть от наличия RLS-политик users_select_own / users_insert_self.
+// Иначе при невыставленных политиках новый пользователь не смог бы создать профиль (RLS-deny).
 export async function GET() {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Не авторизован' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
-    // Получаем профиль из таблицы users
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('users')
-      .select(`
-        *,
-        status:user_statuses(name, discount_percent)
-      `)
+      .select(`*, status:user_statuses(name, discount_percent)`)
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
     if (profileError) {
-      // Если профиля нет - создаём его
-      if (profileError.code === 'PGRST116') {
-        const referralCode = generateReferralCode()
-
-        // Получаем Bronze статус
-        const { data: bronzeStatus } = await supabase
-          .from('user_statuses')
-          .select('id')
-          .eq('name', 'Bronze')
-          .single()
-
-        const { data: newProfile, error: createError } = await supabase
-          .from('users')
-          .insert({
-            id: user.id,
-            email: user.email!,
-            referral_code: referralCode,
-            status_id: bronzeStatus?.id,
-            balance: 0
-          })
-          .select(`
-            *,
-            status:user_statuses(name, discount_percent)
-          `)
-          .single()
-
-        if (createError) {
-          console.error('Create profile error:', createError)
-          return NextResponse.json(
-            { error: 'Ошибка создания профиля' },
-            { status: 500 }
-          )
-        }
-
-        return NextResponse.json(newProfile)
-      }
-
       console.error('Profile error:', profileError)
-      return NextResponse.json(
-        { error: 'Ошибка получения профиля' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Ошибка получения профиля' }, { status: 500 })
     }
 
-    return NextResponse.json(profile)
+    if (profile) {
+      return NextResponse.json(profile)
+    }
+
+    // Профиля ещё нет — создаём при первом входе (Bronze, уникальный реф-код).
+    const { data: bronzeStatus } = await supabaseAdmin
+      .from('user_statuses')
+      .select('id')
+      .eq('name', 'Bronze')
+      .maybeSingle()
+
+    const { data: newProfile, error: createError } = await supabaseAdmin
+      .from('users')
+      .insert({
+        id: user.id,
+        email: user.email!,
+        referral_code: generateReferralCode(),
+        status_id: bronzeStatus?.id ?? null,
+        balance: 0,
+      })
+      .select(`*, status:user_statuses(name, discount_percent)`)
+      .single()
+
+    if (createError) {
+      console.error('Create profile error:', createError)
+      return NextResponse.json({ error: 'Ошибка создания профиля' }, { status: 500 })
+    }
+
+    return NextResponse.json(newProfile)
   } catch (error) {
     console.error('Profile error:', error)
-    return NextResponse.json(
-      { error: 'Ошибка сервера' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }
 
-// PATCH /api/user/profile - обновить профиль
+// PATCH /api/user/profile - обновить профиль (разрешено менять ТОЛЬКО собственный telegram_id).
+// Чувствительные поля (balance, is_admin, status_id, referral_code) через этот эндпоинт не меняются.
 export async function PATCH(request: Request) {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Не авторизован' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { telegram_id } = body
-
-    // Обновляем только разрешённые поля
-    const updates: any = {}
-    if (telegram_id !== undefined) {
-      updates.telegram_id = telegram_id
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Некорректный запрос' }, { status: 400 })
     }
 
-    const { data: updatedProfile, error: updateError } = await supabase
+    // Белый список изменяемых пользователем полей — только telegram_id.
+    const updates: Record<string, unknown> = {}
+    if (body.telegram_id !== undefined) {
+      // Пустая строка → сброс привязки (null).
+      updates.telegram_id = body.telegram_id === '' || body.telegram_id === null ? null : body.telegram_id
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'Нет полей для обновления' }, { status: 400 })
+    }
+
+    const { data: updatedProfile, error: updateError } = await supabaseAdmin
       .from('users')
       .update(updates)
       .eq('id', user.id)
-      .select(`
-        *,
-        status:user_statuses(name, discount_percent)
-      `)
+      .select(`*, status:user_statuses(name, discount_percent)`)
       .single()
 
     if (updateError) {
       console.error('Update profile error:', updateError)
-      return NextResponse.json(
-        { error: 'Ошибка обновления профиля' },
-        { status: 500 }
-      )
+      // Конфликт уникальности telegram_id (привязка занята другим аккаунтом).
+      if (updateError.code === '23505') {
+        return NextResponse.json(
+          { error: 'Этот Telegram уже привязан к другому аккаунту' },
+          { status: 409 }
+        )
+      }
+      return NextResponse.json({ error: 'Ошибка обновления профиля' }, { status: 500 })
     }
 
     return NextResponse.json(updatedProfile)
   } catch (error) {
     console.error('Update profile error:', error)
-    return NextResponse.json(
-      { error: 'Ошибка сервера' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }

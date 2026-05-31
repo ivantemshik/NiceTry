@@ -1,0 +1,1569 @@
+AppRoute Public API
+
+       API
+
+                                                    Endpoints
+
+v1                         public-api-docs.json     12
+
+Scopes                     Generated at             Base URL
+
+transaction, funds, shop,  2026-03-18 13:47:06.803  {{BASE_URL}}
+orders
+
+    JSON-    
+:    endpoint,     , 
+         .
+
+      
+
+ 1)  data-plane endpoint'   X-API-Key. 2)  POST/PUT/PATCH  JSON
+  Content-Type: application/json,   415. 3) statusCode -  
+         HTTP-. 4)  POST /orders
+ referenceId    . 5) Voucher-  GET /orders 
+  .
+
+        
+  :  ,      .
+                                                    AppRoute Public API v1 - Integration Guide
+
+
+
+ 1.  API   
+ 2.   
+ 3.     statusCode
+ 4.   
+ 5.   
+ 6.   endpoint'
+ 7.    
+
+   Endpoint matrix
+
+      Method  Path                             Scope  
+
+GET           /api/v1/accounts         transaction    List Accounts
+
+GET           /api/v1/accounts/        transaction    List Account
+              transactions                            Transactions
+
+GET           /api/v1/funds/methods funds             List Methods
+
+GET           /api/v1/funds/invoices   funds          List Invoices
+
+POST          /api/v1/funds/invoices   funds          Create Invoice
+
+GET           /api/v1/services         shop           List Services
+
+GET           /api/v1/services/{id}    shop           Get Service
+
+GET           /api/v1/steam-currency/  shop           Steam currency rates
+              rates
+
+POST          /api/v1/orders           orders         Create Shop Order
+
+POST          /api/v1/orders           orders         Create DTU Order
+
+POST          /api/v1/orders           orders         DTU Check
+
+GET           /api/v1/orders           orders         List Orders
+
+   
+
+    1-5:      API,
+, polling, masking / unhide    shop  dtu.  
+    endpoint   6.
+
+                                      Page 2
+                                                                                                                          AppRoute Public API v1 - Integration Guide
+
+1.  API   
+
+     AppRoute Public API    :   ,
+      ,   /    . 
+      ,          ,   ,
+        voucher-  direct top-up    .
+
+      API
+
+ Accounts -     .
+ Funds -  ,      .
+ Shop -  , ,  product fields   
+
+     Steam.
+ Orders -  , pre-check  DTU, polling   voucher-.
+
+      5 
+
+                                                   
+  1
+  2                X-API-Key  scopes    API-   data-
+  3                                    plane endpoint' .
+  4                  GET
+  5               /api/v1/accounts     ,   
+                                        .
+                     GET
+                  /api/v1/services      denominationId, ,
+                                       stock    
+                     POST              DTU.
+                  /api/v1/orders
+                                        shop- 
+                   GET /api/v1/orders  direct top-up.
+
+                                          , 
+                                       , unhide voucher-
+                                       .
+
+    
+
+    API    
+     {{BASE_URL}}.
+
+       USD,     .
+       ISO-8601  timezone offset.
+  orders JSON  query-  camelCase: ordersType, referenceId,
+
+     orderId, denominationId, isLongOrder.
+
+        
+
+          .         /services, 
+          denominationId  POST /orders.    
+          .
+
+2.   
+
+   
+
+ data-plane endpoint'   X-API-Key.    JSON-
+(POST/PUT/PATCH)   Content-Type: application/json.  Content-
+Type , API  HTTP 415     media type.
+
+                                                    
+X-API-Key                               API- .
+
+                  Page 3
+                                                               AppRoute Public API v1 - Integration Guide
+Content-Type: application/json                                                   
+
+                                POST / PUT / PATCH  JSON body    
+                                                                 415.
+
+Idempotency  referenceId
+
+ purchase-  POST /orders  referenceId    
+.     referenceId  , API   
+,       statusCode=IDEMPOTENCY_REPLAY.
+:  body      .
+
+ 
+   UUID    .    
+     replay.
+
+ : shop  dtu
+
+      ordersType                                                     
+                                 voucher / gift code           result.vouchers
+shop                            Direct top-up                  result.attributes
+dtu
+
+     polling
+
+ POST /orders   IN_PROGRESS  HTTP 202 -  ,    
+     ,    .
+
+  : SUCCESS, PARTIALLY_COMPLETED, CANCELLED.
+     GET /orders  orderId  referenceId.
+  :  polling    1-2 , 
+
+         exponential backoff.
+
+   Masking  unhide  voucher-
+
+     GET /orders    voucher-   : **** +
+      4 .    ,   GET /orders?
+     orderId=...&unhide=true  GET /orders?referenceId=...&unhide=true. 
+     orderId/referenceId  unhide=true     422.
+
+        unhide
+
+        unhide=true       shop service,  
+          .      -
+         .
+
+Long orders
+
+    long order.  ,   
+         
+  .      isLongOrder=true, 
+minQtyToLongOrder   ,    
+.
+
+3.     statusCode
+
+ endpoint'   envelope.     
+,      .   :
+statusCode -   ,    HTTP-.
+
+                                Page 4
+                                                                   AppRoute Public API v1 - Integration Guide
+                                                                      
+status
+                                           : SUCCESS,
+statusCode                               IN_PROGRESS, PARTIALLY_COMPLETED 
+statusMessage                            CANCELLED.
+traceId
+data                                       .   
+errors                                      -.
+
+                                          .
+
+                                             
+                                         .
+
+                                           .   
+                                         null.
+
+                                          FieldError.  
+                                         .
+
+FieldError
+
+                                                                          
+                                               .
+field                                    -  .
+code                                      .
+message
+
+ application statusCode
+
+                                   Code                 HTTP         
+OK                  0                    200
+                                                               
+ACCEPTED            1                    202                  .
+
+IDEMPOTENCY_REPLAY  2                    200                    
+                                                               ;
+VALIDATION_ERROR    3                    422/415                
+                                                               GET /orders.
+UNAUTHORIZED        4                    401
+                                         403                   referenceId:
+FORBIDDEN           5                    404                   
+                                         409                   .
+NOT_FOUND           6                    429
+                                         422                   
+CONFLICT            7                    422                  . 
+                                                                
+LIMIT_REACHED       8                                         errors[].
+
+OUT_OF_STOCK        9                                         API- 
+                                                               .
+INSUFFICIENT_FUNDS  10
+                                                              API- , 
+                                                              scopes .
+
+                                                                .
+
+                                                               
+                                                              .
+
+                                                               rate limit;
+                                                                
+                                                               .
+
+                                                                
+                                                              .
+
+                                                               
+                                                                .
+
+                                         Page 5
+                                                         AppRoute Public API v1 - Integration Guide
+
+                        Code          HTTP                
+
+                                                          upstream-
+
+UPSTREAM_ERROR      11        502                        : shop, billing 
+
+                                                         funding.
+
+INTERNAL_ERROR      12        500                         
+                                                         .
+
+  
+
+     response.status    ,  statusCode -
+  ,  traceId     .  
+   .
+
+4.   
+
+    .    
+ endpoint'     JSON-.
+
+Balance item
+
+                                                             
+                                ,  USD.
+currency                         .
+balance                       ,    .
+available                     ,    
+reserved                      .
+overdraftLimit                 ,   .
+
+Transaction item
+
+                                                             
+
+id / transactionId             /  
+currency                       .
+category
+balance                        .
+amount
+                                : shop, funding 
+orderId                       ..
+description
+createdAt                        .
+
+                               .   
+                               .
+
+                               ,    
+                              .
+
+                                .
+
+                                  ISO-8601.
+
+Funding method  invoice
+
+                                                                        
+Funding method
+                        code, name, minAmount,              
+                        commission, ttlMinutes,          .
+                        confirmationsRequired, address,
+                        memoTag
+
+                              Page 6
+                                                               AppRoute Public API v1 - Integration Guide
+Invoice                                                                           
+
+                          id, methodCode,                        
+                          amountExpected, credited,               
+                          address, txHash, status,             .
+                          timeLeftSeconds, confirmations,
+                          expiresAt
+
+Service / Denomination / Field definition
+
+                                                                                
+
+Service                   id, name, type, countryCode,            .
+                          section, categoryName,
+Denomination              subcategoryName                       , 
+                                                                 
+Field definition          id, name, nominal, price,            denominationId  .
+                          currency, inStock, isLongOrder,
+                          minQtyToLongOrder                     
+                                                               ,  
+                          key, type, required                    , 
+                                                                 DTU.
+
+Order request / result
+
+                                                               
+Request
+Voucher result            ordersType, referenceId,              POST /orders.
+DTU result                orders[0].denominationId,
+Order list item           quantity, isLongOrder, fields[]
+
+                          pin, serialNumber, expiration          shop-,
+                                                                  .
+
+                          attributes                            direct top-up 
+                                                               vouchers  
+                                                               .
+
+                          orderId, reference, status, itemId,    GET /orders.
+                          quantity, amount, vouchers
+
+5.   
+
+ A:  
+
+                                                                   
+                       1
+                       2              GET /api/v1/funds/methods - 
+                       3              methodCode   .
+                       4
+                       5              POST /api/v1/funds/invoices -   
+                                       .
+
+                                          .
+
+                                      GET /api/v1/funds/invoices - 
+                                      , tx hash  .
+
+                                      GET /api/v1/accounts - ,  
+                                      .
+
+                                      Page 7
+                                                                                                                          AppRoute Public API v1 - Integration Guide
+
+ B:  voucher- (shop)
+
+                                   
+   1
+   2  GET /api/v1/services -   
+   3   denominationId.
+   4
+   5  POST /api/v1/orders  ordersType=shop 
+       referenceId.
+
+        202 / IN_PROGRESS - 
+      GET /api/v1/orders  orderId  referenceId.
+
+          SUCCESS 
+      PARTIALLY_COMPLETED.
+
+        pin-  GET
+      /api/v1/orders?...&unhide=true.
+
+ C: direct top-up (DTU)
+
+                         
+
+1     GET /api/v1/services -   
+       fields.
+
+      POST /api/v1/orders  ordersType=dtu 
+
+2     checkOnly=true - 
+
+      account_reference / quote.
+
+3     POST /api/v1/orders  ordersType=dtu 
+       referenceId -  .
+
+4        GET
+      /api/v1/orders   .
+
+5        result.attributes,   
+      vouchers.
+
+ checkOnly 
+
+DTU Check    ,     , 
+          
+( nickname / account name).     .
+
+6.   endpoint'
+
+ endpoint'   functional section.    
+,       .
+
+Accounts /   
+
+ Accounts        .
+
+List Accounts (GET /api/v1/accounts)
+
+    :  ,  ,  
+    .
+ :   ,      ,
+    .
+
+      Page 8
+                                                                         AppRoute Public API v1 - Integration Guide
+                                                                              
+Endpoint id
+Method                                         accounts.list
+Path                                           GET
+Scope section                                  /api/v1/accounts
+                                               transaction
+                                               X-API-Key (apiKey)
+
+Headers                         Type         Required          Description              Example
+                     string                               API key token.        <API_KEY>
+           Header
+ X-API-Key
+
+  endpoint
+
+ data.items    .     
+  .
+
+  
+
+               HTTP              App code                     Label                statusMessage
+200                  0                         Successful Response          OK
+
+502                  11                        Bad Gateway                  Billing service error
+
+401                  4                         Unauthorized                 API key required
+
+403                  5                         Forbidden                    Forbidden
+
+422                  3                         Validation Error             Validation error
+
+429                  8                         Too Many Requests            Limit reached
+
+ 
+
+ curl -X GET "{{BASE_URL}}/api/v1/accounts" \
+     -H "X-API-Key: <API_KEY>"
+
+     
+     -     : available   .
+    ,  502 / statusCode=11.
+
+   List Account Transactions (GET
+   /api/v1/accounts/transactions)
+
+          ,   .
+
+      :    , , , 
+         .
+
+                                                                              
+                                               accounts.transactions
+Endpoint id                                    GET
+Method                                         /api/v1/accounts/transactions
+Path                                           transaction
+Scope section                                  X-API-Key (apiKey)
+
+
+                                               Page 9
+                                                             AppRoute Public API v1 - Integration Guide
+
+Headers                         Type         Required       Description               Example
+                     string                            API key token.         <API_KEY>
+           Header
+ X-API-Key
+
+Query / Path parameters
+
+           Field                Type         Required    Description                   Example
+currency             string           
+                                                       Currency code filter. USD
+
+category             string[]                          Repeatable.            ["shop", "funding"]
+                                                       Balance categories
+                                                       filter.
+                                      
+search               string                            Search in              order
+                                                       description.
+transactionId        string           
+orderId              string                            Filter by transaction  --
+dateFrom             datetime                          id.
+
+dateTo               datetime                          Filter by order id.    --
+limit                number
+offset               number                            ISO-8601 datetime      2026-02-
+                                                       (inclusive).           01T00:00:00+00:00
+
+                                                       ISO-8601 datetime      2026-02-
+                                                       (inclusive).           07T23:59:59+00:00
+
+                                                       1..200 (default 50). 50
+
+                                                       >= 0 (default 0).      0
+
+  endpoint
+
+ data.totalCount -    ,  data.items -  .
+
+  
+
+               HTTP              App code                 Label                    statusMessage
+200                  0                     Successful Response              OK
+
+502                  11                    Bad Gateway                      Billing service error
+
+401                  4                     Unauthorized                     API key required
+
+403                  5                     Forbidden                        Forbidden
+
+422                  3                     Validation Error                 Validation error
+
+429                  8                     Too Many Requests                Limit reached
+
+ 
+
+ curl -X GET "{{BASE_URL}}/api/v1/accounts/transactions?limit=50&offset=0&currency=USD" \
+     -H "X-API-Key: <API_KEY>"
+
+     
+
+    , , orderId, transactionId  
+     .
+
+ limit   1..200, offset   .
+
+Funds /   
+
+ Funds       .
+
+                                           Page 10
+                                                                                                                          AppRoute Public API v1 - Integration Guide
+
+List Methods (GET /api/v1/funds/methods)
+
+    .
+
+ :       :  
+methodCode    .
+
+                                                                          
+                                           funds.methods
+Endpoint id                                GET
+Method                                     /api/v1/funds/methods
+Path                                       funds
+Scope section                              X-API-Key (apiKey)
+
+
+Headers                         Type         Required       Description             Example
+                     string                            API key token.       <API_KEY>
+           Header
+ X-API-Key
+
+  endpoint
+
+ data.items   ,  , , TTL, 
+ ,  ,  / memoTag.
+
+  
+
+               HTTP              App code                 Label                 statusMessage
+200                  0                     Successful Response           OK
+
+502                  11                    Bad Gateway                   Funding service error
+
+401                  4                     Unauthorized                  API key required
+
+403                  5                     Forbidden                     Forbidden
+
+422                  3                     Validation Error              Validation error
+
+429                  8                     Too Many Requests             Limit reached
+
+ 
+
+ curl -X GET "{{BASE_URL}}/api/v1/funds/methods" \
+     -H "X-API-Key: <API_KEY>"
+
+     
+     address  memoTag   .
+ confirmationsRequired ,      .
+
+   List Invoices (GET /api/v1/funds/invoices)
+
+             .
+
+      :     ,  
+        .
+
+                                                                          
+                                           funds.invoices.list
+Endpoint id                                GET
+Method                                     /api/v1/funds/invoices
+Path
+
+                                           Page 11
+                                                                             AppRoute Public API v1 - Integration Guide
+                                                                                  
+Scope section
+                                                   funds
+                                                   X-API-Key (apiKey)
+
+Headers                         Type         Required              Description               Example
+                     string                                   API key token.         <API_KEY>
+           Header
+ X-API-Key
+
+Query / Path parameters
+
+           Field                Type         Required              Description               Example
+status               string[]                                                        ["pending"]
+                                                              Repeatable.            ["USDT_TRC20"]
+methodCode           string[]                                                        --
+                                                              Repeatable.
+search               string                                                          --
+                                                              Search by id/tx        2026-02-
+invoiceId            string                                   hash.                  01T00:00:00+00:00
+                                                                                     2026-02-
+createdFrom          datetime                                 Filter by exact        07T23:59:59+00:00
+                                                              invoice id.
+createdTo            datetime                                                        True
+                                                              ISO-8601 datetime
+withTx               boolean                                  (inclusive).           50
+                                                                                     0
+limit                number                                   ISO-8601 datetime
+offset               number                                   (inclusive).
+
+                                                              If true, returns only
+                                                              invoices with tx
+                                                              hash (if supported).
+
+                                                              1..1000 (default
+                                                              50).
+
+                                                              >= 0 (default 0).
+
+  endpoint
+
+ data.items  ,  data.total     .
+
+  
+
+               HTTP                      App code                 Label                statusMessage
+200                          0                     Successful Response          OK
+
+502                          11                    Bad Gateway                  Funding service error
+
+401                          4                     Unauthorized                 API key required
+
+403                          5                     Forbidden                    Forbidden
+
+422                          3                     Validation Error             Validation error
+
+429                          8                     Too Many Requests            Limit reached
+
+ 
+
+ curl -X GET "{{BASE_URL}}/api/v1/funds/invoices?limit=50&offset=0" \
+     -H "X-API-Key: <API_KEY>"
+
+     
+
+    , , tx hash,     .
+  timeLeftSeconds   UI     .
+
+                                                   Page 12
+                                                                                                                          AppRoute Public API v1 - Integration Guide
+
+Create Invoice (POST /api/v1/funds/invoices)
+
+     .
+
+ : ,      
+ /   .
+
+                                                                                  
+                                                   funds.invoices.create
+Endpoint id                                        POST
+Method                                             /api/v1/funds/invoices
+Path                                               funds
+Scope section                                      X-API-Key (apiKey)
+
+
+Headers                         Type           Required                         Description           Example
+                     string                                                                   <API_KEY>
+           Header                                                          API key token.
+ X-API-Key                                                                                    application/json
+                                                                           Required for JSON
+Content-Type         string                                                body requests
+                                                                           (POST/PUT/PATCH):
+                                                                           must be
+                                                                           application/json
+                                                                           (otherwise 415).
+
+Body fields                      Type           Required                         Description           Example
+                     FundingMethodCode                                     --                 USDT_TRC20
+              Field  string (decimal)                                      >0                 100
+  methodCode
+  amount
+
+  endpoint
+
+ data   : id, ,  , , , TTL  
+.
+
+  
+
+               HTTP                      App code                 Label                              statusMessage
+200                          0                     Successful Response                        OK
+
+502                          11                    Bad Gateway                                Funding service error
+
+415                          3                     Unsupported Media Type                     Unsupported media type.
+                                                                                              Send Content-Type:
+                                                                                              application/json
+
+401                          4                     Unauthorized                               API key required
+
+403                          5                     Forbidden                                  Forbidden
+
+422                          3                     Validation Error                           Validation error
+
+429                          8                     Too Many Requests                          Limit reached
+
+ 
+
+ curl -X POST "{{BASE_URL}}/api/v1/funds/invoices" \
+     -H "Content-Type: application/json" \
+     -H "X-API-Key: <API_KEY>" \
+     -d '{
+     "methodCode": "USDT_TRC20",
+
+                                                                  Page 13
+                                                                 AppRoute Public API v1 - Integration Guide
+
+   "amount": "100"
+}'
+
+     
+
+  POST   Content-Type: application/json,  API  415.
+ amount     .
+
+Shop /   
+
+ Shop   ,     
+  Steam.
+
+List Services (GET /api/v1/services)
+
+    ,   .
+ :      :    service id,
+denominationId, ,      DTU.
+
+                                                                              
+                                               services.list
+Endpoint id                                    GET
+Method                                         /api/v1/services
+Path                                           shop
+Scope section                                  X-API-Key (apiKey)
+
+
+Headers                         Type         Required          Description              Example
+                     string                               API key token.        <API_KEY>
+           Header
+ X-API-Key
+
+  endpoint
+
+ data.items  .      denominations  items ,
+ , fields.
+
+  
+
+               HTTP              App code                     Label                statusMessage
+200                  0                         Successful Response          OK
+
+502                  11                        Bad Gateway                  Shop service error
+
+401                  4                         Unauthorized                 API key required
+
+403                  5                         Forbidden                    Forbidden
+
+422                  3                         Validation Error             Validation error
+
+429                  8                         Too Many Requests            Limit reached
+
+ 
+
+ curl -X GET "{{BASE_URL}}/api/v1/services" \
+     -H "X-API-Key: <API_KEY>"
+
+     
+    POST /orders   id   service.items[].id.
+
+                                           Page 14
+                                                                                                                                AppRoute Public API v1 - Integration Guide
+
+  direct top-up   fields:      
+     orders[0].fields.
+
+   Get Service (GET /api/v1/services/{id})
+
+            id.
+
+      : ,  id      
+          .
+
+                                                                                  
+                                                   services.get
+Endpoint id                                        GET
+Method                                             /api/v1/services/{id}
+Path                                               shop
+Scope section                                      X-API-Key (apiKey)
+
+
+Headers                         Type         Required              Description              Example
+                     string                                   API key token.        <API_KEY>
+           Header
+ X-API-Key
+
+Query / Path parameters
+
+     Field                      Type         Required              Description              Example
+                                                                                    svc_123
+id                   string                                   Path parameter:
+                                                              service id.
+
+  endpoint
+
+ data           .
+
+  
+
+               HTTP                      App code                 Label                statusMessage
+200                          0                     Successful Response          OK
+
+502                          11                    Bad Gateway                  Shop service error
+
+401                          4                     Unauthorized                 API key required
+
+403                          5                     Forbidden                    Forbidden
+
+422                          3                     Validation Error             Validation error
+
+429                          8                     Too Many Requests            Limit reached
+
+ 
+
+ curl -X GET "{{BASE_URL}}/api/v1/services/<id>" \
+     -H "X-API-Key: <API_KEY>"
+
+     
+  id   path.
+        List Services.
+
+   Steam currency rates (GET /api/v1/steam-currency/rates)
+
+        Steam    USD.
+
+                                                   Page 15
+                                                                                                                          AppRoute Public API v1 - Integration Guide
+
+ :   ,  ,  
+
+ .
+
+                                                                          
+                                           steamCurrency.rates
+Endpoint id                                GET
+Method                                     /api/v1/steam-currency/rates
+Path                                       shop
+Scope section                              X-API-Key (apiKey)
+
+
+Headers                         Type         Required       Description               Example
+                     string                            API key token.         <API_KEY>
+           Header
+ X-API-Key
+
+Query / Path parameters
+
+        Field                  Type          Required    Description                Example
+                                      
+quotes               string[]                          Optional quote         ["RUB", "KZT",
+                                                       currency codes filter  "UAH"]
+                                                       (repeatable query
+                                                       param).
+
+  endpoint
+
+ data.baseCurrencyCode   ,   data.items -   
+ .
+
+  
+
+               HTTP              App code                 Label                 statusMessage
+200                  0                     Successful Response           OK
+
+502                  11                    Bad Gateway                   Shop service error
+
+401                  4                     Unauthorized                  API key required
+
+403                  5                     Forbidden                     Forbidden
+
+422                  3                     Validation Error              Validation error
+
+429                  8                     Too Many Requests             Limit reached
+
+ 
+
+ curl -X GET "{{BASE_URL}}/api/v1/steam-currency/rates?quotes=RUB&quotes=KZT&quotes=UAH" \
+     -H "X-API-Key: <API_KEY>"
+
+     
+
+ quotes -  query-.     .
+ providerCreatedAt  fetchedAt    .
+
+Orders /    
+
+ Orders   voucher-, direct top-up, pre-check  
+ .
+
+Create Shop Order (POST /api/v1/orders)
+
+    voucher-.
+                                                                  Page 16
+                                                                                                                          AppRoute Public API v1 - Integration Guide
+
+ :    ,    
+
+ / gift codes.
+
+                                                                             
+                                              orders.create.shop
+Endpoint id                                   POST
+Method                                        /api/v1/orders
+Path                                          orders
+Scope section                                 X-API-Key (apiKey)
+
+
+Headers                            Type            Required        Description                Example
+                        string                                                        <API_KEY>
+           Header                                             API key token.
+ X-API-Key                                                                            application/json
+                                                              Required for JSON
+Content-Type            string                                body requests
+                                                              (POST/PUT/PATCH):
+                                                              must be
+                                                              application/json
+                                                              (otherwise 415).
+
+Body fields                         Type            Required  Description                    Example
+                        "shop" | "dtu"      
+              Field                                           Order type: "shop"      shop
+                                                              (vouchers) or "dtu"
+  ordersType                                                  (direct top-up).
+                                                              "ordersType"
+
+referenceId             string                                Required. 1..40         my-reference-001
+                                                              chars. Idempotency
+                                                              key (unique within
+                                                              your account).
+                                                              "referenceId"
+
+orders                  OrderCreateItem[]                     Exactly 1 item          [{"denominationId":
+                                                              (minItems=1,            "<DENOMINATION_ID
+                                                              maxItems=1).            >", "quantity": 1,
+                                                                                      "isLongOrder":
+                                                                                      false}]
+
+orders[0].denominati                                          Item/denomination id
+onId
+                        string                                from the catalog.       --
+                                            
+                                                              "denominationId"
+
+orders[0].quantity      number                                Quantity to purchase. 1
+
+orders[0].isLongOrde    boolean                               If true, places a long  False
+r                                                             order: for some
+                                                              denominations codes
+                                                              are generated on
+                                                              demand by the
+                                                              service and may
+                                                              arrive later.
+                                                              "isLongOrder"
+
+orders[0].fields        OrderCreateField[]                    Extra fields required   [{"key":
+                                                              by some products        "account_reference",
+                                                              (DTU typically          "value":
+                                                              requires                "<ACCOUNT_REFERE
+                                                              account_reference).     NCE>"}]
+
+orders[0].fields[0].ke  string                                Field key.              account_reference
+y                                           
+
+orders[0].fields[0].val string                     Page 17    Field value.            <ACCOUNT_REFEREN
+                                                                 AppRoute Public API v1 - Integration Guide
+
+            Field       Type               Required          Description             Example
+ue
+                                                                              CE>
+
+  endpoint
+
+ data  orderId, ,   result.vouchers,    .
+
+  
+
+               HTTP              App code                 Label                  statusMessage
+202                  1                     Accepted                       OK
+
+200                  2                     Idempotency Replay             Idempotent replay
+
+200                  0                     Successful Response            OK
+
+422                  9                     Out of Stock                   insufficient stock
+
+422                  10                    Insufficient Funds             insufficient user balance
+
+502                  11                    Bad Gateway                    Shop service error
+
+415                  3                     Unsupported Media Type         Unsupported media type.
+                                                                          Send Content-Type:
+                                                                          application/json
+
+401                  4                     Unauthorized                   API key required
+
+403                  5                     Forbidden                      Forbidden
+
+422                  3                     Validation Error               Validation error
+
+429                  8                     Too Many Requests              Limit reached
+
+ 
+
+ curl -X POST "{{BASE_URL}}/api/v1/orders" \
+     -H "Content-Type: application/json" \
+     -H "X-API-Key: <API_KEY>" \
+     -d '{
+     "ordersType": "shop",
+     "referenceId": "my-reference-001",
+     "orders": [
+         {
+            "denominationId": "8a5a2d77-2b42-4de0-8b31-7a6a50c6a111",
+            "quantity": 1,
+            "isLongOrder": false
+         }
+     ]
+
+ }'
+
+     
+
+ referenceId      .
+     referenceId     , 
+
+        .
+      isLongOrder=true -   
+
+      .
+
+   Create DTU Order (POST /api/v1/orders)
+
+        direct top-up   voucher-.
+
+      :     /  ID,  
+      ,   .
+
+                                                                       
+
+Endpoint id                                orders.create.dtu
+
+                                           Page 18
+                                                                       AppRoute Public API v1 - Integration Guide
+                                                                            
+Method
+Path                                         POST
+Scope section                                /api/v1/orders
+                                             orders
+                                             X-API-Key (apiKey)
+
+Headers                             Type            Required        Description               Example
+                         string                                                       <API_KEY>
+           Header                                              API key token.
+ X-API-Key                                                                            application/json
+                                                               Required for JSON
+Content-Type             string                                body requests
+                                                               (POST/PUT/PATCH):
+                                                               must be
+                                                               application/json
+                                                               (otherwise 415).
+
+Body fields                          Type            Required  Description                 Example
+                         "shop" | "dtu"      
+              Field                                            Order type: "shop"
+
+  ordersType                                                   (vouchers) or "dtu"    dtu
+                                                               (direct top-up).
+                                             
+                                                               "ordersType"
+                                             
+referenceId              string                                Required. 1..40        my-reference-001
+                                                               chars. Idempotency
+                                                               key (unique within
+                                                               your account).
+                                                               "referenceId"
+
+orders                   OrderCreateItem[]                     Exactly 1 item         [{"denominationId":
+                                                               (minItems=1,           "<DTU_DENOMINATI
+                                                               maxItems=1).           ON_ID>", "quantity":
+                                                                                      1, "fields": [{"key":
+                                                                                      "account_reference",
+                                                                                      "value":
+                                                                                      "<ACCOUNT_REFERE
+                                                                                      NCE>"}]}]
+
+orders[0].denominati                                           Item/denomination id
+onId
+                         string                                from the catalog.      --
+
+                                                               "denominationId"
+
+orders[0].quantity       number                                Quantity to purchase. 1
+
+orders[0].amountCurr     string | null                         Optional currency      RUB
+encyCode                                                       code for interpreting
+                                                               the "amount" field in
+                                                               DTU open range
+                                                               requests.
+                                                               "amountCurrencyCod
+                                                               e"
+
+orders[0].fields         OrderCreateField[]                    Extra fields required  [{"key":
+                                                               by some products       "account_reference",
+                                                               (DTU typically         "value":
+                                                               requires               "<ACCOUNT_REFERE
+                                                               account_reference).    NCE>"}]
+
+orders[0].fields[0].ke   string                                Field key.             account_reference
+y
+
+orders[0].fields[0].val  string                                Field value.           <ACCOUNT_REFEREN
+ue                                                                                    CE>
+
+                                             Page 19
+                                                        AppRoute Public API v1 - Integration Guide
+
+  endpoint
+
+ data.result.vouchers  null,       result.attributes.
+
+  
+
+               HTTP              App code                              Label           statusMessage
+202                  1                                  Accepted                OK
+200                  2                                  Idempotency Replay      Idempotent replay
+200                  0                                  Successful Response     OK
+
+422                  9                                  Out of Stock            insufficient stock
+                                                        Insufficient Funds
+422                  10                                 Bad Gateway             insufficient user balance
+
+502                  11                                 Unsupported Media Type  Shop service error
+
+415                  3                                  Unauthorized            Unsupported media type.
+                                                        Forbidden               Send Content-Type:
+401                  4                                  Validation Error        application/json
+                                                        Too Many Requests
+403                  5                                                          API key required
+
+422                  3                                                          Forbidden
+
+429                  8                                                          Validation error
+
+                                                                                Limit reached
+
+ 
+
+ curl -X POST "{{BASE_URL}}/api/v1/orders" \
+     -H "Content-Type: application/json" \
+     -H "X-API-Key: <API_KEY>" \
+     -d '{
+     "ordersType": "dtu",
+     "referenceId": "my-reference-001",
+     "orders": [
+         {
+            "denominationId": "<DTU_DENOMINATION_ID>",
+            "quantity": 1,
+            "amountCurrencyCode": "RUB",
+            "fields": [
+                {
+                    "key": "account_reference",
+                    "value": "<ACCOUNT_REFERENCE>"
+                },
+                {
+                    "key": "amount",
+                    "value": "10"
+                }
+            ]
+         }
+     ]
+
+ }'
+
+     
+    DTU    services.list / services.get.
+  open-range    amountCurrencyCode   amount 
+
+     orders[0].fields.
+
+   DTU Check (POST /api/v1/orders)
+
+      DTU-      .
+
+      :    pre-check:  quote, 
+           / nickname  .
+
+                                           Page 20
+                                                                   AppRoute Public API v1 - Integration Guide
+                                                                        
+Endpoint id
+Method                                   orders.check.dtu
+Path                                     POST
+Scope section                            /api/v1/orders
+                                         orders
+                                         X-API-Key (apiKey)
+
+Headers                          Type           Required        Description               Example
+                      string                                                      <API_KEY>
+           Header                                          API key token.
+ X-API-Key                                                                        application/json
+                                                           Required for JSON
+Content-Type          string                               body requests
+                                                           (POST/PUT/PATCH):
+                                                           must be
+                                                           application/json
+                                                           (otherwise 415).
+
+Body fields                       Type           Required  Description                  Example
+                      "shop" | "dtu"     
+              Field                                        Order type: "shop"
+
+  ordersType                                               (vouchers) or "dtu"    dtu
+                                                           (direct top-up).
+                                         
+                                                           "ordersType"
+                                         
+checkOnly             boolean                              If true, runs DTU      True
+                                                           validation (quote +
+                                                Page 21    provider check)
+                                                           without creating an
+                                                           order. Allowed only
+                                                           for
+                                                           "ordersType=dtu".
+                                                           "checkOnly"
+
+referenceId           string                               Optional for DTU       my-reference-001
+                                                           check
+                                                           "checkOnly=true".
+                                                           Required for
+                                                           purchases
+                                                           (idempotency). 1..40
+                                                           chars. "referenceId"
+
+orders                OrderCreateItem[]                    Exactly 1 item         [{"denominationId":
+                                                           (minItems=1,           "<DTU_DENOMINATI
+                                                           maxItems=1).           ON_ID>", "quantity":
+                                                                                  1, "fields": [{"key":
+                                                                                  "account_reference",
+                                                                                  "value":
+                                                                                  "<ACCOUNT_REFERE
+                                                                                  NCE>"}]}]
+
+orders[0].denominati                                       Item/denomination id
+onId
+                      string                               from the catalog.      --
+
+                                                           "denominationId"
+
+orders[0].quantity    number                               Quantity to purchase. 1
+
+orders[0].amountCurr  string | null                        Optional currency      RUB
+encyCode                                                   code for interpreting
+                                                           the "amount" field in
+                                                           DTU open range
+                                                           requests.
+                                                           "amountCurrencyCod
+                                                           e"
+                                                                          AppRoute Public API v1 - Integration Guide
+
+     Field                          Type               Required           Description             Example
+
+orders[0].fields         OrderCreateField[]                        Extra fields required  [{"key":
+                                                                   by some products       "account_reference",
+                                                                   (DTU typically         "value":
+                                                                   requires               "<ACCOUNT_REFERE
+                                                                   account_reference).    NCE>"}]
+
+orders[0].fields[0].ke   string                                    Field key.             account_reference
+y                                            
+
+orders[0].fields[0].val  string                                    Field value.           <ACCOUNT_REFEREN
+ue                                                                                        CE>
+
+  endpoint
+
+ data  canRecharge, , , providerStatus, providerMessage  
+.
+
+  
+
+               HTTP                          App code                  Label                  statusMessage
+200                              0                      Successful Response            OK
+
+422                              3                      Validation Error               Validation error
+
+502                              11                     Bad Gateway                    Shop service error
+
+415                              3                      Unsupported Media Type         Unsupported media type.
+                                                                                       Send Content-Type:
+                                                                                       application/json
+
+401                              4                      Unauthorized                   API key required
+
+403                              5                      Forbidden                      Forbidden
+
+429                              8                      Too Many Requests              Limit reached
+
+ 
+
+ curl -X POST "{{BASE_URL}}/api/v1/orders" \
+     -H "Content-Type: application/json" \
+     -H "X-API-Key: <API_KEY>" \
+     -d '{
+     "ordersType": "dtu",
+     "checkOnly": true,
+     "orders": [
+         {
+            "denominationId": "<DTU_DENOMINATION_ID>",
+            "quantity": 1,
+            "amountCurrencyCode": "RUB",
+            "fields": [
+                {
+                    "key": "account_reference",
+                    "value": "<ACCOUNT_REFERENCE>"
+                },
+                {
+                    "key": "amount",
+                    "value": "10"
+                }
+            ]
+         }
+     ]
+
+ }'
+
+     
+
+ checkOnly=true    ordersType=dtu.
+ referenceId  checkOnly ,     .
+
+                                                       Page 22
+                                                                     AppRoute Public API v1 - Integration Guide
+
+List Orders (GET /api/v1/orders)
+
+        orderId / referenceId.
+
+ :  endpoint  polling,    
+ voucher-.
+
+                                                                                  
+                                                   orders.list
+Endpoint id                                        GET
+Method                                             /api/v1/orders
+Path                                               orders
+Scope section                                      X-API-Key (apiKey)
+
+
+Headers                         Type         Required              Description               Example
+                     string                                   API key token.         <API_KEY>
+           Header
+ X-API-Key
+
+Query / Path parameters
+
+         Field                  Type         Required            Description                 Example
+                     number           
+limit                                                         1..200 (default 50). 50
+                                      
+offset               number                                   >= 0 (default 0).      0
+
+orderId              string                                   Filter by orderId.     --
+
+                                                              Filter by referenceId
+
+referenceId          string                                   (partner id /          --
+
+                                                              idempotency key).
+
+unhide               boolean                                  If true, returns full  False
+                                                              voucher codes.
+                                                              Requires orderId or
+                                                              referenceId. Marks
+                                                              codes as received
+                                                              and stores first
+                                                              retrieval timestamp.
+                                                              Requests with
+                                                              "unhide=true" are
+                                                              not rate-limited.
+
+  endpoint
+
+ data.page.items  ,  hasNext    .
+
+  
+
+               HTTP                      App code                 Label                  statusMessage
+200                          0                     Successful Response            OK
+
+502                          11                    Bad Gateway                    Shop service error
+
+401                          4                     Unauthorized                   API key required
+
+403                          5                     Forbidden                      Forbidden
+
+422                          3                     Validation Error               Validation error
+
+429                          8                     Too Many Requests              Limit reached
+
+                                                   Page 23
+                                          AppRoute Public API v1 - Integration Guide
+
+ 
+
+curl -X GET "{{BASE_URL}}/api/v1/orders?limit=50&offset=0&referenceId=<REFERENCE_ID>" \
+   -H "X-API-Key: <API_KEY>"
+
+     
+
+     .
+       orderId  referenceId  
+
+     unhide=true.
+ unhide=true   :      underlying
+
+     service.
+
+7.    
+
+                                           
+
+POST  Content-Type  API  415 Unsupported    Content-
+                    Media Type.           Type: application/json  JSON
+                                          body.
+
+                       ;                   
+referenceId           .                   referenceId  
+                                           .
+
+ vouchers  DTU        vouchers  null.      direct top-up 
+                                          result.attributes.
+
+unhide=true         API  422.              unhide=true
+                                             orderId 
+                                          referenceId.
+
+  polling              rate limit.           orderId /
+                                          referenceId  
+                                          backoff.
+
+ fields             DTU-                    
+                    .                      fields   
+                                            .
+
+  HTTP-              -                      HTTP, 
+                    .                     statusCode,  status.
+
+   
+
+    :     , 
+    referenceId,     
+ GET /orders    -   -  voucher- 
+unhide=true.     ,   , 
+ .
+
+                     .
+
+                    Page 24
+

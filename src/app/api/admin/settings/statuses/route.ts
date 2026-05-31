@@ -1,29 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth/admin'
 
 // GET /api/admin/settings/statuses - список статусов
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
-    // Проверка прав администратора
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single()
-
-    if (!userData?.is_admin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const guard = await requireAdmin()
+    if (!guard.ok) return guard.response
+    const supabase = guard.admin
 
     const { data: statuses, error } = await supabase
       .from('user_statuses')
@@ -43,26 +26,9 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/settings/statuses - создание статуса
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
-    // Проверка прав администратора
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single()
-
-    if (!userData?.is_admin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const guard = await requireAdmin()
+    if (!guard.ok) return guard.response
+    const supabase = guard.admin
 
     const body = await request.json()
 

@@ -40,6 +40,39 @@ export default function LoginPage() {
     }
   }
 
+  // Локальный вход без письма (обходит лимит почты Supabase). Только в dev-режиме.
+  const handleDevLogin = async () => {
+    if (!email) {
+      setError('Введите email')
+      return
+    }
+    setLoading(true)
+    setMessage('')
+    setError('')
+
+    try {
+      const response = await fetch('/api/auth/dev-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Ошибка входа')
+        return
+      }
+
+      // Сессия установлена в cookies — перезагружаем на главную.
+      window.location.href = '/'
+    } catch (err) {
+      setError('Ошибка сети')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="card card-pad w-full max-w-md">
@@ -86,6 +119,17 @@ export default function LoginPage() {
           >
             {loading ? 'Отправка...' : 'Получить ссылку для входа'}
           </button>
+
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              type="button"
+              onClick={handleDevLogin}
+              className="btn btn-ghost w-full"
+              disabled={loading}
+            >
+              Войти без письма (dev)
+            </button>
+          )}
         </form>
 
         <div className="mt-6 text-center text-sm text-muted">

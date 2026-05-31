@@ -1,85 +1,200 @@
-// Утилиты для работы с Dessly API (заглушка)
+// Клиент Dessly API (поставщик отправки игр / гифтов).
+// Документация: https://desslyhub.readme.io/reference/introduction
+//
+// Эндпоинты (по llms.txt, база — /api/v1):
+//   GET  /api/v1/steam/games                 — список игр Steam для покупки
+//   GET  /api/v1/steam/games/{app_id}        — издания игры по app_id
+//   POST /api/v1/steam/gift                  — покупка/отправка игры гифтом
+//   POST /api/v1/service/steam/topup/check_login — проверка возможности пополнения по логину
+//   POST /api/v1/steam/refill                — пополнение Steam-аккаунта
+//   GET  /api/v1/status/{transaction_id}     — статус транзакции
+//   PUT  /api/v1/merchants/balance           — баланс мерчанта
+//
+// Режимы: если задан DESSLY_API_KEY (+ опц. DESSLY_BASE_URL) — боевой режим (Bearer-токен),
+// иначе мок из src/data/catalog.json. Форма ответов сохраняется при переключении.
+//
+// TODO: вставить токен — заполнить DESSLY_API_KEY в .env.local (ключ предоставит заказчик).
+//       При необходимости уточнить схему авторизации (Bearer vs X-API-Key) по документации.
 
-export interface DesslyProduct {
+import catalog from '@/data/catalog.json'
+
+const DEFAULT_BASE_URL = 'https://api.desslyhub.com' // TODO: уточнить реальный base URL у поставщика
+
+const PLACEHOLDER_VALUES = new Set(['', 'your_dessly_api_key', 'TODO', 'changeme'])
+
+export interface DesslyGame {
   id: string
   name: string
-  category: string
-  price_usd: number
+  price: number // USD
+  currency: string
   platform: string
+  inStock: boolean
 }
 
-export interface DesslyOrderRequest {
-  product_id: string
-  recipient_email: string
-  reference_id: string
+export interface DesslyGiftRequest {
+  gameId: string
+  /** Профиль/ссылка получателя в Steam. */
+  recipient: string
+  referenceId: string
 }
 
-export interface DesslyOrderResponse {
-  order_id: string
-  status: 'pending' | 'delivered' | 'failed'
-  gift_link?: string
+export interface DesslyGiftResponse {
+  transactionId: string
+  status: 'pending' | 'sent' | 'failed'
+  giftLink?: string
+  message?: string
 }
 
-// ЗАГЛУШКА: Моковые данные для разработки
-const MOCK_PRODUCTS: DesslyProduct[] = [
-  {
-    id: 'cyberpunk-2077',
-    name: 'Cyberpunk 2077',
-    category: 'Games',
-    price_usd: 59.99,
-    platform: 'Steam',
-  },
-  {
-    id: 'elden-ring',
-    name: 'Elden Ring',
-    category: 'Games',
-    price_usd: 49.99,
-    platform: 'Steam',
-  },
-  {
-    id: 'baldurs-gate-3',
-    name: "Baldur's Gate 3",
-    category: 'Games',
-    price_usd: 59.99,
-    platform: 'Steam',
-  },
-]
+function baseUrl(): string {
+  return (process.env.DESSLY_BASE_URL || DEFAULT_BASE_URL).trim().replace(/\/+$/, '')
+}
+function apiKey(): string {
+  return (process.env.DESSLY_API_KEY || '').trim()
+}
 
-export class DesslyClient {
-  private apiKey: string
+/** Боевой режим включён, только если задан валидный (не плейсхолдерный) ключ. */
+export function isLiveMode(): boolean {
+  const key = apiKey()
+  return !PLACEHOLDER_VALUES.has(key) && key.length > 0
+}
 
-  constructor() {
-    this.apiKey = process.env.DESSLY_API_KEY || 'mock_key'
+export class DesslyError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'DesslyError'
+    this.status = status
+  }
+}
+
+async function liveRequest<T>(
+  path: string,
+  opts: { method?: 'GET' | 'POST' | 'PUT'; body?: unknown } = {}
+): Promise<T> {
+  const method = opts.method || 'GET'
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey()}`,
+    Accept: 'application/json',
+  }
+  let body: string | undefined
+  if (opts.body !== undefined && method !== 'GET') {
+    headers['Content-Type'] = 'application/json'
+    body = JSON.stringify(opts.body)
   }
 
-  // ЗАГЛУШКА: Получить список продуктов
-  async getProducts(): Promise<DesslyProduct[]> {
-    console.log('[Dessly Mock] getProducts called')
-    return Promise.resolve(MOCK_PRODUCTS)
+  let res: Response
+  try {
+    res = await fetch(baseUrl() + path, { method, headers, body, cache: 'no-store' })
+  } catch (e) {
+    throw new DesslyError(`Network error calling Dessly: ${(e as Error).message}`, 0)
   }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new DesslyError(`Dessly API error ${res.status}: ${text.slice(0, 200)}`, res.status)
+  }
+  return (await res.json()) as T
+}
 
-  // ЗАГЛУШКА: Создать заказ (отправка гифта)
-  async createOrder(request: DesslyOrderRequest): Promise<DesslyOrderResponse> {
-    console.log('[Dessly Mock] createOrder called:', request)
+// ---- Мок-данные из catalog.json ----
 
-    return Promise.resolve({
-      order_id: `dessly_${Date.now()}`,
-      status: 'delivered',
-      gift_link: `https://steam.mock/gift/${Math.random().toString(36).substring(7)}`,
+function mockGames(): DesslyGame[] {
+  return catalog.desslyGames.map((g) => ({
+    id: g.id,
+    name: g.name,
+    price: g.price,
+    currency: g.currency,
+    platform: g.platform,
+    inStock: g.inStock,
+  }))
+}
+
+// ============================================================
+// Публичные методы
+// ============================================================
+
+/** Список игр, доступных для отправки гифтом. */
+export async function listGames(): Promise<DesslyGame[]> {
+  if (isLiveMode()) {
+    // Боевой ответ нормализуется к DesslyGame[]; уточнить маппинг полей по факту получения ключа.
+    const data = await liveRequest<{ items?: unknown[] }>('/api/v1/steam/games')
+    const items = (data.items ?? (Array.isArray(data) ? data : [])) as Array<Record<string, unknown>>
+    return items.map((g) => ({
+      id: String(g.id ?? g.app_id ?? ''),
+      name: String(g.name ?? ''),
+      price: Number(g.price ?? 0),
+      currency: String(g.currency ?? 'USD'),
+      platform: String(g.platform ?? 'Steam'),
+      inStock: g.inStock !== false,
+    }))
+  }
+  return mockGames()
+}
+
+export async function getGame(id: string): Promise<DesslyGame | null> {
+  if (isLiveMode()) {
+    const g = await liveRequest<Record<string, unknown>>(`/api/v1/steam/games/${encodeURIComponent(id)}`)
+    if (!g) return null
+    return {
+      id: String(g.id ?? g.app_id ?? id),
+      name: String(g.name ?? ''),
+      price: Number(g.price ?? 0),
+      currency: String(g.currency ?? 'USD'),
+      platform: String(g.platform ?? 'Steam'),
+      inStock: g.inStock !== false,
+    }
+  }
+  return mockGames().find((g) => g.id === id) ?? null
+}
+
+/** Отправка игры гифтом (POST /api/v1/steam/gift). */
+export async function sendGift(req: DesslyGiftRequest): Promise<DesslyGiftResponse> {
+  if (isLiveMode()) {
+    const data = await liveRequest<Record<string, unknown>>('/api/v1/steam/gift', {
+      method: 'POST',
+      body: {
+        app_id: req.gameId,
+        recipient: req.recipient,
+        reference_id: req.referenceId,
+      },
     })
+    return {
+      transactionId: String(data.transaction_id ?? data.transactionId ?? ''),
+      status: (data.status as DesslyGiftResponse['status']) ?? 'pending',
+      giftLink: data.gift_link as string | undefined,
+      message: data.message as string | undefined,
+    }
   }
-
-  // ЗАГЛУШКА: Проверить статус заказа
-  async getOrderStatus(orderId: string): Promise<DesslyOrderResponse> {
-    console.log('[Dessly Mock] getOrderStatus called:', orderId)
-
-    return Promise.resolve({
-      order_id: orderId,
-      status: 'delivered',
-      gift_link: `https://steam.mock/gift/${Math.random().toString(36).substring(7)}`,
-    })
+  // Мок: гифт «отправлен».
+  return {
+    transactionId: `dessly-${Date.now().toString(36)}`,
+    status: 'sent',
+    giftLink: `https://store.steampowered.com/gift/mock-${req.referenceId}`,
   }
 }
 
-// Экспорт singleton instance
-export const desslyClient = new DesslyClient()
+/** Статус транзакции (GET /api/v1/status/{transaction_id}). */
+export async function getTransactionStatus(transactionId: string): Promise<DesslyGiftResponse> {
+  if (isLiveMode()) {
+    const data = await liveRequest<Record<string, unknown>>(
+      `/api/v1/status/${encodeURIComponent(transactionId)}`
+    )
+    return {
+      transactionId,
+      status: (data.status as DesslyGiftResponse['status']) ?? 'pending',
+      giftLink: data.gift_link as string | undefined,
+      message: data.message as string | undefined,
+    }
+  }
+  return { transactionId, status: 'sent' }
+}
+
+/** Баланс мерчанта (PUT /api/v1/merchants/balance). */
+export async function getMerchantBalance(): Promise<{ balance: number; currency: string }> {
+  if (isLiveMode()) {
+    const data = await liveRequest<Record<string, unknown>>('/api/v1/merchants/balance', {
+      method: 'PUT',
+    })
+    return { balance: Number(data.balance ?? 0), currency: String(data.currency ?? 'USD') }
+  }
+  return { balance: 1000, currency: 'USD' }
+}

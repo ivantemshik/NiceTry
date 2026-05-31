@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { buildCategories } from '@/lib/catalog'
 
 /**
  * GET /api/categories
- * Получить список всех активных категорий
+ * Активные категории. Фолбэк на каталог из catalog.json, если БД пуста/недоступна.
  */
 export async function GET() {
   try {
@@ -15,20 +16,12 @@ export async function GET() {
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
 
-    if (error) {
-      console.error('Error fetching categories:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch categories' },
-        { status: 500 }
-      )
+    if (!error && categories && categories.length > 0) {
+      return NextResponse.json({ categories })
     }
-
-    return NextResponse.json({ categories })
+    return NextResponse.json({ categories: buildCategories(), source: 'catalog-fallback' })
   } catch (error) {
-    console.error('Unexpected error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('[categories] DB unavailable, using fallback:', error)
+    return NextResponse.json({ categories: buildCategories(), source: 'catalog-fallback' })
   }
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth/admin'
 
 // GET /api/admin/users/[id] - получение пользователя
 export async function GET(
@@ -7,26 +7,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = await createClient()
-
-    // Проверка прав администратора
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single()
-
-    if (!userData?.is_admin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const guard = await requireAdmin()
+    if (!guard.ok) return guard.response
+    const supabase = guard.admin
 
     const { data: targetUser, error } = await supabase
       .from('users')
@@ -79,36 +62,42 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = await createClient()
+    const guard = await requireAdmin()
+    if (!guard.ok) return guard.response
+    const supabase = guard.admin
 
-    // Проверка прав администратора
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Некорректный запрос' }, { status: 400 })
     }
 
-    const { data: userData } = await supabase
+    // Состояние ДО изменений — нужно для корректного расчёта дельты баланса.
+    const { data: before, error: beforeError } = await supabase
       .from('users')
-      .select('is_admin')
-      .eq('id', user.id)
+      .select('balance')
+      .eq('id', params.id)
       .single()
-
-    if (!userData?.is_admin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (beforeError || !before) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const body = await request.json()
-
-    // Обновляем пользователя
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     }
 
+    // Рассчитываем дельту баланса ДО обновления (иначе она всегда была бы 0).
+    let balanceDiff = 0
     if (body.balance !== undefined) {
-      updateData.balance = body.balance
+      const newBalance = Number(body.balance)
+      if (!Number.isFinite(newBalance) || newBalance < 0) {
+        return NextResponse.json({ error: 'Некорректный баланс' }, { status: 400 })
+      }
+      balanceDiff = newBalance - Number(before.balance || 0)
+      // Ручная корректировка баланса требует указания причины (ТЗ §5.6).
+      if (balanceDiff !== 0 && !body.balance_reason) {
+        return NextResponse.json({ error: 'Укажите причину изменения баланса' }, { status: 400 })
+      }
+      updateData.balance = newBalance
     }
 
     if (body.status_id !== undefined) {
@@ -116,7 +105,7 @@ export async function PATCH(
     }
 
     if (body.is_admin !== undefined) {
-      updateData.is_admin = body.is_admin
+      updateData.is_admin = Boolean(body.is_admin)
     }
 
     const { data: updatedUser, error } = await supabase
@@ -130,24 +119,14 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Если изменён баланс, создаём транзакцию
-    if (body.balance !== undefined && body.balance_reason) {
-      const { data: currentUser } = await supabase
-        .from('users')
-        .select('balance')
-        .eq('id', params.id)
-        .single()
-
-      const balanceDiff = Number(body.balance) - Number(currentUser?.balance || 0)
-
-      if (balanceDiff !== 0) {
-        await supabase.from('balance_transactions').insert({
-          user_id: params.id,
-          amount: Math.abs(balanceDiff),
-          type: 'admin',
-          description: body.balance_reason,
-        })
-      }
+    // Транзакция корректировки баланса — со знаком (+/−), чтобы история была корректной.
+    if (balanceDiff !== 0) {
+      await supabase.from('balance_transactions').insert({
+        user_id: params.id,
+        amount: balanceDiff,
+        type: 'admin',
+        description: body.balance_reason,
+      })
     }
 
     return NextResponse.json({ user: updatedUser })
