@@ -59,3 +59,56 @@ src/
 - API между фронтом и бэкендом
 
 ---
+
+## 2026-05-31 | Коммит: Инициализация завершена
+
+### ✅ Первый коммит создан
+- **Коммит:** `ebbbc99` — "feat: Этап 0 - Инициализация проекта NiceTry"
+- **Файлов:** 19 (включая ТЗ, index.html, схему БД)
+- **Репозиторий:** `ivantemshik/NiceTry`
+- **Ветка:** `master`
+
+### Что в коммите
+1. **Конфигурация проекта**
+   - package.json (Next.js 14, React, TypeScript, Supabase)
+   - tsconfig.json, next.config.js, tailwind.config.js, postcss.config.js
+   - .gitignore, .env.example
+
+2. **Исходный код**
+   - src/app/layout.tsx — корневой layout с метаданными
+   - src/app/page.tsx — главная страница (заглушка)
+   - src/lib/supabase.ts — клиенты Supabase (публичный + admin)
+   - src/types/index.ts — TypeScript типы (User, Product, Order, и др.)
+   - src/styles/globals.css — глобальные стили + Tailwind
+
+3. **База данных**
+   - supabase_schema.sql — полная схема (14 таблиц, RLS, триггеры)
+
+4. **Документация**
+   - README.md — описание проекта, команды, структура
+   - WORKLOG.md — журнал разработки (этот файл)
+   - start.bat — скрипт локального запуска
+
+5. **Эталоны**
+   - index.html — референс дизайна (бело-голубая тема)
+   - ТЗ_NiceTry.md — техническое задание (328 строк)
+   - AppRoute_Public_API_Documentation_RU.pdf — документация поставщика
+
+### Готово к работе
+Проект можно запустить локально:
+```bash
+npm install
+npm run dev
+```
+Или через `start.bat` (Windows).
+
+### Следующие действия
+1. Применить `supabase_schema.sql` в Supabase проекте
+2. Получить от заказчика:
+   - Supabase URL и ключи
+   - X-API-Key AppRoute (когда потребуется)
+   - Ключ Dessly (когда потребуется)
+3. Заполнить `.env.local` по шаблону `.env.example`
+4. Начать Этап 2: авторизация и бэкенд-каркас
+
+---
