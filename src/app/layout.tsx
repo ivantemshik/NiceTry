@@ -1,5 +1,8 @@
 import type { Metadata } from 'next'
 import '../styles/globals.css'
+import { AuthProvider } from '@/hooks/useAuth'
+import Header from '@/components/Header'
+import Footer from '@/components/Footer'
 
 export const metadata: Metadata = {
   title: 'NiceTry — магазин цифровых товаров',
@@ -16,8 +19,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru">
-      <body className="font-sans text-ink bg-bg antialiased">
-        {children}
+      <body className="font-sans text-ink bg-bg antialiased flex flex-col min-h-screen">
+        <AuthProvider>
+          <Header />
+          <main className="flex-1">
+            {children}
+          </main>
+          <Footer />
+        </AuthProvider>
       </body>
     </html>
   )
