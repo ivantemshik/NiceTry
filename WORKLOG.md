@@ -112,3 +112,24 @@ npm run dev
 4. Начать Этап 2: авторизация и бэкенд-каркас
 
 ---
+
+## 2026-05-31 | Supabase подключён — начало Этапа 2
+
+### ✅ Получены ключи Supabase
+- Project URL: `ikdxebfmvkrmnfmhzmoo.supabase.co`
+- Anon Key: настроен в .env.local
+- Service Role Key: настроен в .env.local
+
+### Выполнено
+- ✅ Создан `.env.local` с ключами Supabase (не в Git)
+- ✅ Схема БД исправлена (promo_codes перед orders)
+- ✅ Коммит f508615 отправлен в GitHub
+
+### Следующие задачи (Этап 2: Авторизация)
+- [ ] Проверить подключение к Supabase
+- [ ] Реализовать авторизацию (magic link)
+- [ ] Создать API routes для auth
+- [ ] Базовые UI-компоненты (Header, Footer)
+- [ ] Middleware для защиты роутов
+
+---
