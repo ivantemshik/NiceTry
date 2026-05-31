@@ -7,7 +7,21 @@
 
 ## Задача 1: Импорт товаров через API
 
-### 1.1 Получить реальные ключи API
+### 1.1 Получить доступ к Supabase
+**Владелец проекта должен пригласить вас:**
+1. Проверьте email — должно прийти приглашение от Supabase
+2. Примите приглашение
+3. Войдите в https://supabase.com
+4. Откройте проект `ikdxebfmvkrmnfmhzmoo`
+
+**Получить ключи API:**
+1. В Supabase Dashboard перейдите в **Settings** → **API**
+2. Скопируйте:
+   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+   - **anon public** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - **service_role secret** → `SUPABASE_SERVICE_ROLE_KEY`
+
+### 1.2 Получить реальные ключи API
 **От владельца проекта нужно получить:**
 - `APPROUTE_API_KEY` — ключ AppRoute API
 - `APPROUTE_BASE_URL` — базовый URL AppRoute
@@ -15,9 +29,20 @@
 
 **Добавить в `.env.local`:**
 ```env
+# Supabase (из Supabase Dashboard → Settings → API)
+NEXT_PUBLIC_SUPABASE_URL=https://ikdxebfmvkrmnfmhzmoo.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=ваш_anon_key
+SUPABASE_SERVICE_ROLE_KEY=ваш_service_role_key
+
+# AppRoute API (от владельца)
 APPROUTE_API_KEY=ваш_ключ_approute
 APPROUTE_BASE_URL=https://api.approute.com
+
+# Dessly API (от владельца)
 DESSLY_API_KEY=ваш_ключ_dessly
+
+# Site
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
 ### 1.2 Обновить заглушки на реальные API

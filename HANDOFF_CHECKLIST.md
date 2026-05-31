@@ -10,14 +10,30 @@ https://github.com/ivantemshik/NiceTry
 - Дать доступ к репозиторию (Settings → Collaborators)
 - Или: разработчик клонирует публичный репозиторий
 
-### 2. Supabase (уже настроено)
-Ключи уже в `.env.local`:
+### 2. Supabase (нужно пригласить)
+**Владелец должен пригласить разработчика в проект:**
+
+1. Откройте https://supabase.com
+2. Войдите в свой аккаунт
+3. Выберите проект `ikdxebfmvkrmnfmhzmoo`
+4. Перейдите в **Settings** → **Team**
+5. Нажмите **Invite member**
+6. Введите email разработчика
+7. Выберите роль: **Developer**
+
+**После приглашения разработчик:**
+- Получит доступ к проекту Supabase
+- Сможет посмотреть ключи в Settings → API
+- Сможет работать с БД через SQL Editor
+- Сможет смотреть логи и таблицы
+
+**Ключи для .env.local:**
+Разработчик найдёт их в Supabase Dashboard → Settings → API:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://ikdxebfmvkrmnfmhzmoo.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=... (из Project API keys → anon public)
+SUPABASE_SERVICE_ROLE_KEY=... (из Project API keys → service_role secret)
 ```
-✅ **Ничего не нужно — уже работает**
 
 ### 3. API ключи (нужно получить)
 **От вас требуется передать:**
@@ -53,15 +69,22 @@ npm install
 ```
 
 ### Шаг 2: Настройка .env.local
-Файл уже существует с ключами Supabase.
-**Добавить в него:**
+**Создать файл `.env.local` в корне проекта:**
 ```env
+# Supabase (получить из Supabase Dashboard → Settings → API)
+NEXT_PUBLIC_SUPABASE_URL=https://ikdxebfmvkrmnfmhzmoo.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=ваш_anon_key_из_supabase
+SUPABASE_SERVICE_ROLE_KEY=ваш_service_role_key_из_supabase
+
 # AppRoute API (получить от владельца)
 APPROUTE_API_KEY=ключ_от_владельца
 APPROUTE_BASE_URL=url_от_владельца
 
 # Dessly API (получить от владельца)
 DESSLY_API_KEY=ключ_от_владельца
+
+# Site
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
 ### Шаг 3: Запуск проекта
@@ -93,16 +116,17 @@ npm run dev
 ### Что вы должны сделать:
 
 - [ ] Дать доступ к GitHub репозиторию (или сделать публичным)
+- [ ] **Пригласить разработчика в Supabase проект** (Settings → Team → Invite member, роль: Developer)
 - [ ] Получить ключ AppRoute API
 - [ ] Получить ключ Dessly API
-- [ ] Передать ключи разработчику (безопасно, не в открытом виде)
-- [ ] Дать доступ к Supabase проекту (опционально, ключи уже в .env.local)
+- [ ] Передать ключи API разработчику (безопасно, не в открытом виде)
 
 ### Что разработчик должен сделать:
 
+- [ ] Принять приглашение в Supabase (проверить email)
 - [ ] Клонировать репозиторий
 - [ ] Установить зависимости (`npm install`)
-- [ ] Добавить ключи API в `.env.local`
+- [ ] Создать `.env.local` и добавить ключи (из Supabase Dashboard + от владельца)
 - [ ] Запустить проект (`npm run dev`)
 - [ ] Следовать инструкциям в `HANDOFF_INSTRUCTIONS.md`
 
