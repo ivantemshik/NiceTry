@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NiceTry — магазин цифровых товаров</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230F1E2E'/%3E%3Ctext x='9' y='44' font-family='Arial' font-weight='900' font-size='30' fill='%231C8CE3'%3EN%3C/text%3E%3Ctext x='33' y='44' font-family='Arial' font-weight='900' font-size='30' fill='%23ffffff'%3ET%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --blue:#1C8CE3; --blue-600:#1577C7; --blue-700:#0F62A8; --blue-800:#0B4E86;
+  --blue-50:#EAF4FD; --blue-100:#D6EAFB; --blue-200:#BFDDF7;
+  --navy:#0F1E2E; --ink:#10202E; --muted:#5B6472; --muted-2:#869099;
+  --border:#E6EAF0; --border-2:#EDF1F6; --bg:#F4F7FA; --surface:#FFFFFF;
+  --green:#15A05A; --green-bg:#E7F6ED; --red:#D63B3B; --red-bg:#FBEAEA;
+  --amber:#C9821A; --amber-bg:#FCF1DF; --gray:#8A949E; --gray-bg:#EFF2F5;
+  --shadow-sm:0 1px 2px rgba(16,32,46,.06);
+  --shadow:0 4px 14px rgba(16,32,46,.08);
+  --shadow-lg:0 12px 34px rgba(16,32,46,.14);
+  --r-sm:8px; --r:10px; --r-lg:14px; --r-xl:18px;
+  --container:1280px;
+  --font:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--font);color:var(--ink);background:var(--bg);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;color:var(--navy);font-weight:700;line-height:1.2}
+h1{font-size:30px;letter-spacing:-.02em}
+h2{font-size:22px;letter-spacing:-.01em}
+h3{font-size:17px}
+h4{font-size:15px}
+p{margin:0}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:14px}
+.container{max-width:var(--container);margin:0 auto;padding:0 20px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.tiny{font-size:12px}
+.nowrap{white-space:nowrap}
+.hidden{display:none!important}
+.row{display:flex;align-items:center;gap:10px}
+.spread{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.stack{display:flex;flex-direction:column}
+svg.ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.ic-sm{width:16px;height:16px}
+svg.ic-lg{width:22px;height:22px}
+
+/* ---------- Buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;border-radius:var(--r);padding:0 16px;height:42px;font-size:14px;font-weight:600;background:var(--surface);color:var(--ink);transition:.16s ease;white-space:nowrap}
+.btn:hover{background:#f7f9fb}
+.btn .ic{width:17px;height:17px}
+.btn-primary{background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(28,140,227,.28)}
+.btn-primary:hover{background:var(--blue-600)}
+.btn-primary:active{background:var(--blue-700)}
+.btn-secondary{background:var(--blue-50);color:var(--blue-700);border-color:var(--blue-100)}
+.btn-secondary:hover{background:var(--blue-100)}
+.btn-ghost{background:transparent;color:var(--muted);border-color:var(--border)}
+.btn-ghost:hover{background:#f3f6f9;color:var(--ink)}
+.btn-danger{background:#fff;color:var(--red);border-color:#f1cccc}
+.btn-danger:hover{background:var(--red-bg)}
+.btn-block{width:100%}
+.btn-lg{height:50px;font-size:15px;padding:0 22px}
+.btn-sm{height:34px;font-size:13px;padding:0 12px;border-radius:var(--r-sm)}
+.btn[disabled]{opacity:.55;cursor:not-allowed;box-shadow:none}
+.btn.loading{position:relative;color:transparent!important;pointer-events:none}
+.btn.loading::after{content:"";position:absolute;width:17px;height:17px;border:2px solid rgba(255,255,255,.5);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+.btn-secondary.loading::after,.btn-ghost.loading::after{border-color:rgba(28,140,227,.3);border-top-color:var(--blue)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.iconbtn{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:var(--r);border:1px solid var(--border);background:var(--surface);color:var(--muted);transition:.16s}
+.iconbtn:hover{color:var(--blue);border-color:var(--blue-200);background:var(--blue-50)}
+
+/* ---------- Badges ---------- */
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:11.5px;font-weight:600;letter-spacing:.01em;background:var(--gray-bg);color:var(--muted)}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.badge-instant{background:var(--blue-50);color:var(--blue-700)}
+.badge-stock{background:var(--green-bg);color:var(--green)}
+.badge-out{background:var(--gray-bg);color:var(--gray)}
+.badge-sale{background:var(--red-bg);color:var(--red)}
+.badge-amber{background:var(--amber-bg);color:var(--amber)}
+.badge-new{background:#ECE9FB;color:#6747C7}
+
+/* ---------- Inputs ---------- */
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-size:13px;font-weight:600;color:var(--ink)}
+.input,.select,textarea.input{width:100%;height:44px;border:1px solid var(--border);border-radius:var(--r);background:#fff;padding:0 13px;color:var(--ink);transition:.15s;outline:none}
+textarea.input{height:auto;padding:11px 13px;resize:vertical;line-height:1.5}
+.input:focus,.select:focus,textarea.input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(28,140,227,.15)}
+.input::placeholder{color:var(--muted-2)}
+.input.err{border-color:var(--red);box-shadow:0 0 0 3px rgba(214,59,59,.12)}
+.field .hint{font-size:12px;color:var(--muted)}
+.field .hint.error{color:var(--red)}
+.select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%235B6472' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:34px}
+.checkbox{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:14px}
+.checkbox input{width:17px;height:17px;accent-color:var(--blue)}
+
+/* ---------- Card ---------- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm)}
+.card-pad{padding:18px}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px}
+.section-head .link{color:var(--blue-700);font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:4px}
+.section-head .link:hover{color:var(--blue)}
+.divider{height:1px;background:var(--border);border:0;margin:0}
+
+/* ---------- Top promo bar ---------- */
+.topbar{background:var(--navy);color:#cfe3f5;font-size:13px}
+.topbar .container{display:flex;align-items:center;justify-content:center;gap:10px;height:38px;position:relative}
+.topbar a{color:#fff;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+.topbar .tg{color:#7cc6ff}
+.topbar .close{position:absolute;right:20px;background:none;border:0;color:#8aa6c0;display:inline-flex}
+.topbar .close:hover{color:#fff}
+
+/* ---------- Header ---------- */
+header.site{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.header-main{display:flex;align-items:center;gap:22px;height:70px}
+.logo{display:flex;align-items:center;gap:0;flex:none}
+.logo svg{height:34px;width:auto;display:block}
+.search{flex:1;display:flex;align-items:center;height:46px;border:1px solid var(--border);border-radius:var(--r);background:#fff;overflow:hidden;transition:.15s;max-width:620px}
+.search:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(28,140,227,.13)}
+.search .cat{height:100%;border:0;border-right:1px solid var(--border);background:#f7f9fb;padding:0 30px 0 13px;color:var(--ink);font-weight:600;font-size:13px;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%235B6472' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 5l3.5 3.5L10.5 5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center}
+.search input{flex:1;border:0;height:100%;padding:0 13px;outline:none;background:transparent;font-size:14px}
+.search .go{border:0;background:transparent;color:var(--muted);padding:0 14px;height:100%;display:flex;align-items:center}
+.search .go:hover{color:var(--blue)}
+.header-actions{display:flex;align-items:center;gap:10px;flex:none}
+.balance-chip{display:flex;align-items:center;gap:8px;height:46px;padding:0 14px;border:1px solid var(--border);border-radius:var(--r);background:#fff}
+.balance-chip .bval{font-weight:700;color:var(--navy)}
+.balance-chip .ic{color:var(--blue)}
+.acct{display:flex;align-items:center;gap:9px;height:46px;padding:0 6px 0 12px;border:1px solid var(--border);border-radius:var(--r);background:#fff;cursor:pointer}
+.acct:hover{border-color:var(--blue-200)}
+.acct .av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-800));color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.cart-btn{position:relative}
+.cart-btn .count{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+.burger{display:none}
+/* category nav */
+.catnav{border-top:1px solid var(--border-2);background:#fff}
+.catnav .container{display:flex;align-items:center;gap:4px;height:48px;overflow-x:auto;scrollbar-width:none}
+.catnav .container::-webkit-scrollbar{display:none}
+.catnav a{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:var(--r-sm);color:var(--muted);font-weight:600;font-size:13.5px;white-space:nowrap;transition:.14s}
+.catnav a:hover{background:var(--blue-50);color:var(--blue-700)}
+.catnav a.active{background:var(--blue-50);color:var(--blue-700)}
+.catnav a .ic{width:16px;height:16px}
+.catnav .allcats{color:var(--ink)}
+.catnav .hot{color:var(--red)}
+
+/* ---------- Layout / page ---------- */
+main{min-height:60vh;padding:24px 0 50px}
+.view{display:none}
+.view.active{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.breadcrumb{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);margin-bottom:16px;flex-wrap:wrap}
+.breadcrumb a:hover{color:var(--blue)}
+.breadcrumb .sep{color:var(--muted-2)}
+.page-title{margin-bottom:18px}
+
+/* ---------- Promo banners (home) ---------- */
+.promo-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:26px}
+.promo{border-radius:var(--r-xl);padding:26px 28px;color:#fff;position:relative;overflow:hidden;min-height:172px;display:flex;flex-direction:column;justify-content:center;border:1px solid rgba(255,255,255,.06)}
+.promo.main{background:linear-gradient(115deg,#0F2C4A 0%,#13629F 55%,#1C8CE3 100%)}
+.promo.side{background:linear-gradient(140deg,#102234,#1B3F63);min-height:172px}
+.promo h2{color:#fff;font-size:25px;max-width:60%}
+.promo.side h3{color:#fff;font-size:18px}
+.promo p{color:#cfe2f3;margin:8px 0 16px;font-size:14px;max-width:62%}
+.promo .deco{position:absolute;right:-30px;top:-30px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(124,198,255,.35),transparent 70%)}
+.promo .btn{align-self:flex-start;position:relative;z-index:2}
+.promo.side .tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#7cc6ff;font-weight:700;margin-bottom:8px}
+
+/* ---------- Category tiles ---------- */
+.cat-tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:30px}
+.cat-tile{background:#fff;border:1px solid var(--border);border-radius:var(--r-lg);padding:16px 12px;text-align:center;transition:.16s;cursor:pointer}
+.cat-tile:hover{border-color:var(--blue-200);box-shadow:var(--shadow);transform:translateY(-2px)}
+.cat-tile .ico{width:46px;height:46px;border-radius:12px;background:var(--blue-50);color:var(--blue-700);display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+.cat-tile .ico .ic{width:23px;height:23px}
+.cat-tile .nm{font-weight:600;font-size:13.5px}
+.cat-tile .ct{font-size:12px;color:var(--muted-2);margin-top:2px}
+
+/* ---------- Product grid & card ---------- */
+.prod-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
+.prod-grid.cols-4{grid-template-columns:repeat(4,1fr)}
+.pcard{background:#fff;border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;display:flex;flex-direction:column;transition:.16s;position:relative}
+.pcard:hover{border-color:var(--blue-200);box-shadow:var(--shadow-lg);transform:translateY(-3px)}
+.pcard .cover{position:relative;aspect-ratio:4/3;display:flex;align-items:flex-end;padding:12px;cursor:pointer;background-size:cover}
+.pcard .cover .ttl{position:relative;z-index:2;color:#fff;font-weight:800;font-size:18px;line-height:1.1;text-shadow:0 1px 6px rgba(0,0,0,.4);letter-spacing:-.01em}
+.pcard .cover .plat{position:relative;z-index:2;font-size:11px;color:rgba(255,255,255,.85);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.pcard .cover::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.55))}
+.pcard .cover .topbadges{position:absolute;top:10px;left:10px;right:10px;z-index:3;display:flex;justify-content:space-between;align-items:flex-start}
+.pcard .fav{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.92);color:var(--muted);display:flex;align-items:center;justify-content:center;border:0}
+.pcard .fav:hover{color:var(--red)}
+.pcard .body{padding:12px 13px 13px;display:flex;flex-direction:column;gap:7px;flex:1}
+.pcard .nm{font-weight:600;font-size:14px;line-height:1.3;cursor:pointer;color:var(--ink)}
+.pcard .nm:hover{color:var(--blue-700)}
+.pcard .meta{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted-2)}
+.pcard .meta .star{color:#E8A33D;display:inline-flex;align-items:center;gap:3px}
+.pcard .badges{display:flex;flex-wrap:wrap;gap:5px}
+.pcard .foot{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:8px;padding-top:4px}
+.pcard .price{display:flex;flex-direction:column;line-height:1.1}
+.pcard .price .now{font-weight:800;font-size:18px;color:var(--navy)}
+.pcard .price .old{font-size:12px;color:var(--muted-2);text-decoration:line-through}
+.pcard .add{width:40px;height:40px;border-radius:10px;background:var(--blue-50);color:var(--blue-700);border:1px solid var(--blue-100);display:flex;align-items:center;justify-content:center;transition:.15s}
+.pcard .add:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
+.pcard.out .cover{filter:grayscale(.7) opacity(.8)}
+.pcard.out .add{opacity:.5;pointer-events:none}
+
+/* skeleton */
+.skel{background:linear-gradient(90deg,#eef1f5 25%,#f6f8fa 50%,#eef1f5 75%);background-size:200% 100%;animation:sh 1.2s infinite;border-radius:6px}
+@keyframes sh{to{background-position:-200% 0}}
+.scard .cover{aspect-ratio:4/3}
+.scard .ln{height:12px;margin:10px 13px 0;border-radius:5px}
+
+/* ---------- footer ---------- */
+footer.site{background:var(--navy);color:#aebfce;margin-top:30px}
+footer.site .container{padding-top:42px;padding-bottom:30px}
+.foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:30px;padding-bottom:30px;border-bottom:1px solid rgba(255,255,255,.08)}
+footer.site h4{color:#fff;font-size:14px;margin-bottom:14px}
+footer.site a{display:block;color:#aebfce;font-size:13.5px;padding:5px 0}
+footer.site a:hover{color:#fff}
+.foot-about p{font-size:13.5px;line-height:1.6;margin:14px 0 16px;max-width:320px}
+.foot-social{display:flex;gap:10px}
+.foot-social a{width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;padding:0}
+.foot-social a:hover{background:var(--blue)}
+.foot-bottom{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-top:20px;font-size:12.5px;color:#7e91a3;flex-wrap:wrap}
+.pays{display:flex;gap:8px;align-items:center}
+.pays span{height:26px;padding:0 9px;border-radius:5px;background:rgba(255,255,255,.08);display:flex;align-items:center;font-size:11px;font-weight:700;color:#cdd9e4}
+
+/* ---------- toast ---------- */
+.toast-wrap{position:fixed;right:20px;bottom:20px;z-index:200;display:flex;flex-direction:column;gap:10px}
+.toast{display:flex;align-items:flex-start;gap:11px;background:#fff;border:1px solid var(--border);border-left:4px solid var(--blue);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:13px 15px;min-width:280px;max-width:360px;animation:slidein .25s ease}
+.toast.ok{border-left-color:var(--green)}.toast.ok .ti{color:var(--green)}
+.toast.err{border-left-color:var(--red)}.toast.err .ti{color:var(--red)}
+.toast .ti{color:var(--blue)}
+.toast .tx{font-size:13.5px}.toast .tx b{display:block;color:var(--navy);margin-bottom:2px}
+.toast .x{margin-left:auto;border:0;background:none;color:var(--muted-2)}
+@keyframes slidein{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+
+/* ---------- modal ---------- */
+.modal-back{position:fixed;inset:0;background:rgba(15,30,46,.5);z-index:150;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-back.open{display:flex}
+.modal{background:#fff;border-radius:var(--r-xl);box-shadow:var(--shadow-lg);width:100%;max-width:440px;padding:24px;animation:fade .2s ease}
+.modal h3{margin-bottom:6px}
+
+/* loading overlay */
+#boot{position:fixed;inset:0;background:var(--navy);z-index:500;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;transition:opacity .4s}
+#boot.done{opacity:0;pointer-events:none}
+#boot .spin{width:38px;height:38px;border:3px solid rgba(124,198,255,.25);border-top-color:#1C8CE3;border-radius:50%;animation:spin .7s linear infinite}
+
+@media(max-width:1080px){.prod-grid{grid-template-columns:repeat(4,1fr)}.cat-tiles{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:860px){
+  .header-main{height:60px;gap:12px}
+  .catnav,.search .cat,.balance-chip,.acct .nm{display:none}
+  .burger{display:inline-flex}
+  .promo-grid{grid-template-columns:1fr}
+  .promo p,.promo h2{max-width:100%}
+  .prod-grid{grid-template-columns:repeat(2,1fr);gap:12px}
+  .cat-tiles{grid-template-columns:repeat(3,1fr)}
+  .foot-grid{grid-template-columns:1fr 1fr;gap:22px}
+}
+@media(max-width:520px){.prod-grid{grid-template-columns:repeat(2,1fr)}.cat-tiles{grid-template-columns:repeat(2,1fr)}h1{font-size:24px}}
+</style>
+</head>
+<body>
+<div id="boot"><svg width="150" viewBox="0 0 320 70" xmlns="http://www.w3.org/2000/svg"><text x="0" y="52" font-family="Arial" font-weight="900" font-size="58" fill="#1C8CE3">N</text><text x="38" y="52" font-family="Arial" font-weight="900" font-size="58" fill="#ffffff">T</text><text x="92" y="40" font-family="'Segoe Script','Brush Script MT',cursive" font-style="italic" font-size="40" fill="#1C8CE3">Nice</text><text x="150" y="64" font-family="'Segoe Script','Brush Script MT',cursive" font-style="italic" font-size="40" fill="#ffffff">try</text></svg><div class="spin"></div></div>
+
+<!-- ===== TOP PROMO BAR ===== -->
+<div class="topbar" id="topbar">
+  <div class="container">
+    <svg class="ic tg" viewBox="0 0 24 24"><path d="M21 4L3 11l5 2 2 6 3-4 5 4z"/></svg>
+    <span>Новые дропы ключей и промокоды каждый день —</span>
+    <a href="#" data-route="catalog">подпишись на Telegram-канал NiceTry</a>
+    <button class="close" onclick="document.getElementById('topbar').remove()" aria-label="Закрыть"><svg class="ic-sm ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+</div>
+
+<!-- ===== HEADER ===== -->
+<header class="site">
+  <div class="container">
+    <div class="header-main">
+      <button class="iconbtn burger" id="burger" aria-label="Меню"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <a class="logo" href="#" data-route="home" aria-label="NiceTry">
+        <svg viewBox="0 0 250 56" xmlns="http://www.w3.org/2000/svg">
+          <text x="0" y="42" font-family="Arial" font-weight="900" font-size="46" fill="#1C8CE3">N</text>
+          <text x="30" y="42" font-family="Arial" font-weight="900" font-size="46" fill="#0F1E2E">T</text>
+          <text x="72" y="31" font-family="'Segoe Script','Brush Script MT',cursive" font-style="italic" font-size="31" fill="#1C8CE3">Nice</text>
+          <text x="118" y="50" font-family="'Segoe Script','Brush Script MT',cursive" font-style="italic" font-size="31" fill="#0F1E2E">try</text>
+        </svg>
+      </a>
+      <div class="search">
+        <select class="cat" aria-label="Категория">
+          <option>Все разделы</option><option>Игровая валюта</option><option>Ключи игр</option><option>Пополнения</option><option>Подписки</option><option>Gift-карты</option>
+        </select>
+        <input type="text" placeholder="Поиск: Steam, PUBG Mobile, V-Bucks, Roblox…" id="searchInput">
+        <button class="go" aria-label="Найти"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.2-3.2"/></svg></button>
+      </div>
+      <div class="header-actions">
+        <div class="balance-chip" data-route="profile" style="cursor:pointer" title="Баланс">
+          <svg class="ic" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>
+          <span class="bval">1 240 ₽</span>
+        </div>
+        <button class="iconbtn cart-btn" data-route="cart" aria-label="Корзина">
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.4a1.5 1.5 0 001.5 1.2h8.6a1.5 1.5 0 001.5-1.2L21 7H6"/></svg>
+          <span class="count" id="cartCount">2</span>
+        </button>
+        <div class="acct" data-route="profile">
+          <span class="av">СС</span>
+          <span class="nm small" style="font-weight:600">Профиль</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <nav class="catnav">
+    <div class="container">
+      <a class="allcats" data-route="catalog"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Все категории</a>
+      <a data-route="catalog" class="active"><svg class="ic" viewBox="0 0 24 24"><path d="M5 3h14v18l-7-4-7 4z"/></svg>Steam</a>
+      <a data-route="catalog"><svg class="ic" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M11 18h2"/></svg>Mobile-игры</a>
+      <a data-route="catalog"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>Пополнения</a>
+      <a data-route="catalog"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16v12H4zM4 7l8 6 8-6"/></svg>Подписки</a>
+      <a data-route="catalog"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M12 5v14"/></svg>Gift-карты</a>
+      <a data-route="catalog"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l2.5 5 5.5.8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.5-.8z"/></svg>Популярное</a>
+      <a class="hot" data-route="catalog"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3c1 3-2 4-2 7a4 4 0 008 0c0-2-1-3-1-3 2 1 3 3 3 6a8 8 0 01-16 0c0-4 3-6 4-8 1 2 2 1 4-2z"/></svg>Скидки</a>
+      <a data-route="admin" style="margin-left:auto;color:var(--blue-700)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg>Админ-панель</a>
+    </div>
+  </nav>
+</header>
+
+<main class="container">
+
+<!-- ============ HOME ============ -->
+<section class="view active" id="view-home">
+  <div class="promo-grid">
+    <div class="promo main">
+      <div class="deco"></div>
+      <span class="badge" style="background:rgba(255,255,255,.15);color:#cfe7fb;width:max-content;margin-bottom:10px">Цифровые товары · выдача за секунды</span>
+      <h2>Пополни Steam и купи игровую валюту без комиссий</h2>
+      <p>Мгновенная выдача ключей, честный курс и поддержка 24/7. Более 180 000 выполненных заказов.</p>
+      <a class="btn btn-primary btn-lg" data-route="catalog">Перейти в каталог</a>
+    </div>
+    <div class="promo side">
+      <span class="tag"><svg class="ic-sm ic" viewBox="0 0 24 24"><path d="M21 4L3 11l5 2 2 6 3-4 5 4z"/></svg>TELEGRAM-КАНАЛ</span>
+      <h3>Розыгрыши и промокоды до –20%</h3>
+      <p style="max-width:100%">Первыми узнавайте о скидках и новых позициях.</p>
+      <a class="btn btn-secondary" href="#">Подписаться</a>
+    </div>
+  </div>
+
+  <div class="cat-tiles" id="homeCats"></div>
+
+  <section style="margin-bottom:30px">
+    <div class="section-head"><h2>Популярное</h2><a class="link" data-route="catalog">Весь каталог →</a></div>
+    <div class="prod-grid" id="homePopular"></div>
+  </section>
+
+  <section style="margin-bottom:30px">
+    <div class="section-head"><h2>Новинки</h2><a class="link" data-route="catalog">Смотреть все →</a></div>
+    <div class="prod-grid" id="homeNew"></div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>Пополнения и валюта</h2><a class="link" data-route="catalog">Смотреть все →</a></div>
+    <div class="prod-grid" id="homeTopup"></div>
+  </section>
+</section>
+
+<!-- ============ CATALOG ============ -->
+<section class="view" id="view-catalog">
+  <div class="breadcrumb"><a data-route="home">Главная</a><span class="sep">/</span><span>Каталог</span><span class="sep">/</span><span style="color:var(--ink)">Игровая валюта и ключи</span></div>
+  <div class="spread page-title" style="align-items:flex-end">
+    <div><h1>Каталог товаров</h1><p class="muted small" style="margin-top:6px">Найдено <b id="catCount">0</b> товаров · выдача ключей и пополнений</p></div>
+    <button class="btn btn-ghost btn-sm" id="filterToggle" style="display:none"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg>Фильтры</button>
+  </div>
+  <div class="catalog-layout">
+    <aside class="filters card card-pad" id="filterPanel">
+      <div class="spread" style="margin-bottom:14px"><h3>Фильтры</h3><a class="small" style="color:var(--blue-700);font-weight:600" href="#">Сбросить</a></div>
+      <div class="filter-group">
+        <h4>Категория</h4>
+        <label class="checkbox"><input type="checkbox" checked> Игровая валюта <span class="cnt">48</span></label>
+        <label class="checkbox"><input type="checkbox"> Ключи игр <span class="cnt">126</span></label>
+        <label class="checkbox"><input type="checkbox"> Пополнения <span class="cnt">22</span></label>
+        <label class="checkbox"><input type="checkbox"> Подписки <span class="cnt">37</span></label>
+        <label class="checkbox"><input type="checkbox"> Gift-карты <span class="cnt">54</span></label>
+      </div>
+      <hr class="divider" style="margin:14px 0">
+      <div class="filter-group">
+        <h4>Тип выдачи</h4>
+        <label class="checkbox"><input type="checkbox"> Моментальная</label>
+        <label class="checkbox"><input type="checkbox"> Пополнение (авто)</label>
+        <label class="checkbox"><input type="checkbox"> Пополнение (ручное)</label>
+        <label class="checkbox"><input type="checkbox"> Ручная выдача</label>
+      </div>
+      <hr class="divider" style="margin:14px 0">
+      <div class="filter-group">
+        <h4>Цена, ₽</h4>
+        <div class="row" style="gap:8px"><input class="input" placeholder="от 0" style="height:38px"><input class="input" placeholder="до 9999" style="height:38px"></div>
+      </div>
+      <hr class="divider" style="margin:14px 0">
+      <div class="filter-group">
+        <h4>Наличие</h4>
+        <label class="checkbox"><input type="checkbox" checked> Только в наличии</label>
+        <label class="checkbox"><input type="checkbox"> Со скидкой</label>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:16px">Применить</button>
+    </aside>
+    <div>
+      <div class="sortbar card">
+        <div class="chips">
+          <button class="chip active">Все</button>
+          <button class="chip">Моментальные</button>
+          <button class="chip">Пополнения</button>
+          <button class="chip">Со скидкой</button>
+        </div>
+        <div class="row" style="gap:8px">
+          <span class="small muted nowrap">Сортировка:</span>
+          <select class="select" style="height:38px;width:auto"><option>По популярности</option><option>Сначала дешёвые</option><option>Сначала дорогие</option><option>По рейтингу</option><option>Новинки</option></select>
+        </div>
+      </div>
+      <div class="prod-grid cols-4" id="catalogGrid" style="margin-top:16px"></div>
+      <div style="text-align:center;margin-top:26px"><button class="btn btn-secondary btn-lg" id="loadMore">Показать ещё</button></div>
+      <div class="pagination" id="pager"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRODUCT ============ -->
+<section class="view" id="view-product">
+  <div class="breadcrumb" id="prodCrumb"></div>
+  <div id="productBody"></div>
+  <section style="margin-top:34px">
+    <div class="section-head"><h2>Похожие товары</h2><a class="link" data-route="catalog">Весь каталог →</a></div>
+    <div class="prod-grid" id="prodSimilar"></div>
+  </section>
+</section>
+<style>
+/* catalog */
+.catalog-layout{display:grid;grid-template-columns:264px 1fr;gap:20px;align-items:start}
+.filters{position:sticky;top:130px}
+.filter-group h4{font-size:13px;margin-bottom:9px}
+.filter-group .checkbox{margin-bottom:8px;color:var(--ink);position:relative}
+.filter-group .checkbox .cnt{margin-left:auto;color:var(--muted-2);font-size:12px}
+.filter-group .checkbox{display:flex;width:100%}
+.sortbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px}
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{height:32px;padding:0 13px;border-radius:20px;border:1px solid var(--border);background:#fff;color:var(--muted);font-size:13px;font-weight:600;transition:.14s}
+.chip:hover{border-color:var(--blue-200);color:var(--blue-700)}
+.chip.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.pagination{display:flex;justify-content:center;gap:6px;margin-top:24px}
+.pagination button{min-width:38px;height:38px;border:1px solid var(--border);background:#fff;border-radius:var(--r-sm);font-weight:600;color:var(--muted);font-size:14px}
+.pagination button:hover{border-color:var(--blue-200);color:var(--blue-700)}
+.pagination button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+/* product detail */
+.pd-grid{display:grid;grid-template-columns:1.05fr 1fr;gap:26px;align-items:start}
+.pd-gallery .cover{aspect-ratio:16/10;border-radius:var(--r-lg);position:relative;display:flex;align-items:flex-end;padding:22px;overflow:hidden;border:1px solid var(--border)}
+.pd-gallery .cover::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.5))}
+.pd-gallery .cover .ttl{position:relative;z-index:2;color:#fff;font-size:30px;font-weight:800;text-shadow:0 2px 10px rgba(0,0,0,.45)}
+.pd-thumbs{display:flex;gap:10px;margin-top:12px}
+.pd-thumbs div{width:74px;height:56px;border-radius:8px;border:1px solid var(--border);cursor:pointer}
+.pd-thumbs div:first-child{border-color:var(--blue);box-shadow:0 0 0 2px rgba(28,140,227,.2)}
+.pd-info h1{font-size:26px;margin-bottom:10px}
+.pd-rating{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px;margin-bottom:14px}
+.pd-rating .stars{color:#E8A33D;letter-spacing:1px}
+.pd-panel{border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;background:#fff;box-shadow:var(--shadow-sm)}
+.pd-price-row{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.pd-price{font-size:32px;font-weight:800;color:var(--navy)}
+.pd-price .cur{font-size:22px}
+.pd-old{font-size:17px;color:var(--muted-2);text-decoration:line-through}
+.qty{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;height:44px}
+.qty button{width:42px;height:100%;border:0;background:#f7f9fb;color:var(--ink);font-size:18px}
+.qty button:hover{background:var(--blue-50);color:var(--blue-700)}
+.qty input{width:48px;height:100%;border:0;text-align:center;font-weight:700;outline:none}
+.calc-box{background:var(--blue-50);border:1px solid var(--blue-100);border-radius:var(--r);padding:13px 14px;margin:14px 0;display:flex;flex-direction:column;gap:7px}
+.calc-box .ln{display:flex;justify-content:space-between;font-size:13.5px}
+.calc-box .ln b{color:var(--navy)}
+.calc-box .rate{color:var(--muted);font-size:12.5px}
+.region-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px}
+.region-grid button{height:40px;border:1px solid var(--border);background:#fff;border-radius:var(--r-sm);font-weight:600;font-size:13px;color:var(--ink)}
+.region-grid button.active{border-color:var(--blue);background:var(--blue-50);color:var(--blue-700)}
+.info-row{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--border-2);font-size:13.5px}
+.info-row:last-child{border-bottom:0}
+.info-row .ic{color:var(--blue);width:17px;height:17px}
+.info-row .k{color:var(--muted)}
+.info-row .v{margin-left:auto;font-weight:600;color:var(--navy)}
+.trust{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.trust .t{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);background:#f6f8fa;border-radius:8px;padding:8px 11px}
+.trust .t .ic{color:var(--green);width:16px;height:16px}
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin:30px 0 18px}
+.tabs button{padding:11px 16px;border:0;background:none;font-weight:600;font-size:14.5px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.active{color:var(--blue-700);border-bottom-color:var(--blue)}
+.tabpane{display:none}.tabpane.active{display:block;animation:fade .2s}
+.desc-body{max-width:760px;color:#34414d;line-height:1.65}
+.desc-body h4{margin:18px 0 8px}
+.desc-body ul{margin:8px 0;padding-left:20px}.desc-body li{margin:5px 0}
+.review{display:flex;gap:13px;padding:15px 0;border-bottom:1px solid var(--border-2)}
+.review .av{width:40px;height:40px;border-radius:50%;background:var(--blue-50);color:var(--blue-700);display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}
+.review .stars{color:#E8A33D;font-size:13px}
+/* cart & checkout */
+.cart-layout,.checkout-layout{display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start}
+.cart-item{display:flex;gap:14px;padding:15px;border-bottom:1px solid var(--border-2)}
+.cart-item:last-child{border-bottom:0}
+.cart-item .thumb{width:84px;height:64px;border-radius:10px;flex:none}
+.cart-item .x{margin-left:auto;border:0;background:none;color:var(--muted-2)}
+.cart-item .x:hover{color:var(--red)}
+.summary{position:sticky;top:130px}
+.sum-line{display:flex;justify-content:space-between;padding:8px 0;font-size:14px}
+.sum-line.total{border-top:1px solid var(--border);margin-top:6px;padding-top:14px;font-size:18px;font-weight:800;color:var(--navy)}
+.promo-field{display:flex;gap:8px;margin:6px 0 4px}
+.pay-method{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:var(--r);padding:13px 14px;margin-bottom:10px;cursor:pointer;transition:.14s}
+.pay-method:hover{border-color:var(--blue-200)}
+.pay-method.active{border-color:var(--blue);background:var(--blue-50)}
+.pay-method .radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);flex:none}
+.pay-method.active .radio{border-color:var(--blue);box-shadow:inset 0 0 0 3px var(--blue)}
+.pay-method .ic{color:var(--blue)}
+.pay-method .pm-name{font-weight:600}
+.steps{display:flex;align-items:center;gap:8px;margin-bottom:22px;font-size:13px}
+.steps .st{display:flex;align-items:center;gap:7px;color:var(--muted-2)}
+.steps .st .n{width:24px;height:24px;border-radius:50%;background:var(--gray-bg);color:var(--muted);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.steps .st.done .n{background:var(--green);color:#fff}
+.steps .st.active{color:var(--navy);font-weight:600}.steps .st.active .n{background:var(--blue);color:#fff}
+.steps .line{flex:1;height:2px;background:var(--border);max-width:50px}
+/* success */
+.success-wrap{max-width:620px;margin:0 auto;text-align:center}
+.success-ic{width:72px;height:72px;border-radius:50%;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+.success-ic .ic{width:36px;height:36px;stroke-width:2.4}
+.key-box{display:flex;align-items:center;gap:12px;background:var(--navy);color:#dff0ff;border-radius:var(--r);padding:15px 16px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:16px;letter-spacing:1px;margin:10px 0}
+.key-box .copy{margin-left:auto;background:rgba(255,255,255,.1);border:0;color:#fff;border-radius:8px;height:36px;padding:0 13px;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.key-box .copy:hover{background:var(--blue)}
+/* auth */
+.auth-wrap{max-width:420px;margin:30px auto;text-align:center}
+.auth-card{background:#fff;border:1px solid var(--border);border-radius:var(--r-xl);box-shadow:var(--shadow);padding:34px 30px}
+.auth-logo{margin-bottom:20px}
+.mail-ic{width:64px;height:64px;border-radius:50%;background:var(--blue-50);color:var(--blue);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.mail-ic .ic{width:30px;height:30px}
+/* profile */
+.profile-layout,.admin-layout{display:grid;grid-template-columns:248px 1fr;gap:20px;align-items:start}
+.side-menu{background:#fff;border:1px solid var(--border);border-radius:var(--r-lg);padding:8px;position:sticky;top:130px}
+.side-menu .usr{display:flex;align-items:center;gap:11px;padding:12px;border-bottom:1px solid var(--border-2);margin-bottom:8px}
+.side-menu .usr .av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-800));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+.side-menu a{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:var(--r-sm);color:var(--ink);font-weight:500;font-size:14px;margin-bottom:2px;cursor:pointer}
+.side-menu a:hover{background:#f5f8fb}
+.side-menu a.active{background:var(--blue-50);color:var(--blue-700);font-weight:600}
+.side-menu a .ic{width:18px;height:18px;color:var(--muted)}
+.side-menu a.active .ic{color:var(--blue)}
+.side-menu a .badge{margin-left:auto}
+.ppane{display:none}.ppane.active{display:block;animation:fade .2s}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.stat{background:#fff;border:1px solid var(--border);border-radius:var(--r-lg);padding:16px}
+.stat .lbl{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:7px}
+.stat .lbl .ic{width:15px;height:15px;color:var(--blue)}
+.stat .val{font-size:25px;font-weight:800;color:var(--navy);margin-top:8px;letter-spacing:-.02em}
+.stat .tr{font-size:12px;font-weight:600;margin-top:4px}
+.tr.up{color:var(--green)}.tr.down{color:var(--red)}
+.balance-card{background:linear-gradient(120deg,#0F2C4A,#1577C7);color:#fff;border-radius:var(--r-lg);padding:22px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.balance-card .lbl{color:#bcd9f2;font-size:13px}
+.balance-card .amt{font-size:34px;font-weight:800;margin-top:4px}
+/* table */
+.tbl-wrap{background:#fff;border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+table.data{width:100%;border-collapse:collapse;font-size:13.5px}
+table.data th{text-align:left;padding:12px 14px;background:#f7f9fb;color:var(--muted);font-weight:600;font-size:12.5px;border-bottom:1px solid var(--border);white-space:nowrap}
+table.data td{padding:12px 14px;border-bottom:1px solid var(--border-2);vertical-align:middle}
+table.data tr:last-child td{border-bottom:0}
+table.data tr:hover td{background:#fafcfe}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
+/* admin */
+.admin-side{background:var(--navy);border-radius:var(--r-lg);padding:10px;position:sticky;top:130px}
+.admin-side .brand{display:flex;align-items:center;gap:9px;padding:10px 12px 14px;color:#fff;font-weight:700;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:8px}
+.admin-side a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:var(--r-sm);color:#aebfce;font-size:13.5px;font-weight:500;margin-bottom:2px;cursor:pointer}
+.admin-side a:hover{background:rgba(255,255,255,.06);color:#fff}
+.admin-side a.active{background:var(--blue);color:#fff}
+.admin-side a .ic{width:17px;height:17px}
+.apane{display:none}.apane.active{display:block;animation:fade .2s}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:var(--r-lg);padding:18px}
+.bars{display:flex;align-items:flex-end;gap:10px;height:180px;padding-top:10px}
+.bars .b{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;height:100%}
+.bars .b .fill{width:100%;max-width:40px;background:linear-gradient(180deg,var(--blue),var(--blue-700));border-radius:6px 6px 0 0;transition:.3s}
+.bars .b .bl{font-size:11.5px;color:var(--muted-2)}
+.donut{width:150px;height:150px;border-radius:50%;flex:none}
+.legend{display:flex;flex-direction:column;gap:9px}
+.legend .li{display:flex;align-items:center;gap:9px;font-size:13px}
+.legend .dot{width:11px;height:11px;border-radius:3px}
+/* empty / 404 */
+.empty{text-align:center;padding:60px 20px;max-width:440px;margin:0 auto}
+.empty .eic{width:80px;height:80px;border-radius:50%;background:var(--blue-50);color:var(--blue);display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+.empty .eic .ic{width:38px;height:38px}
+.e404{font-size:90px;font-weight:900;color:var(--blue);line-height:1;letter-spacing:-.04em}
+.mobile-drawer{position:fixed;inset:0;z-index:120;display:none}
+.mobile-drawer.open{display:block}
+.mobile-drawer .back{position:absolute;inset:0;background:rgba(15,30,46,.5)}
+.mobile-drawer .panel{position:absolute;left:0;top:0;bottom:0;width:80%;max-width:320px;background:#fff;padding:18px;overflow:auto;animation:slidein .2s}
+.mobile-drawer .panel a{display:flex;align-items:center;gap:11px;padding:13px 10px;border-radius:8px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--border-2)}
+.mobile-drawer .panel a .ic{color:var(--blue)}
+@media(max-width:980px){.pd-grid{grid-template-columns:1fr}.catalog-layout{grid-template-columns:1fr}.filters{display:none}#filterToggle{display:inline-flex!important}.cart-layout,.checkout-layout{grid-template-columns:1fr}.summary{position:static}.profile-layout,.admin-layout{grid-template-columns:1fr}.side-menu,.admin-side{position:static}.stat-grid{grid-template-columns:repeat(2,1fr)}}
+.section-card{background:#fff;border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;margin-bottom:16px}
+</style>
+
+<!-- ============ CART ============ -->
+<section class="view" id="view-cart">
+  <div class="breadcrumb"><a data-route="home">Главная</a><span class="sep">/</span><span style="color:var(--ink)">Корзина</span></div>
+  <h1 class="page-title">Корзина</h1>
+  <div class="cart-layout">
+    <div class="card">
+      <div class="cart-item">
+        <div class="thumb" style="background:linear-gradient(135deg,#1b2838,#2a475e)"></div>
+        <div style="flex:1">
+          <div class="spread"><h4>Пополнение Steam кошелька</h4><button class="x"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+          <div class="row" style="gap:6px;margin:6px 0"><span class="badge badge-instant">Моментально</span><span class="badge badge-stock"><span class="dot"></span>В наличии</span></div>
+          <div class="spread" style="margin-top:8px">
+            <div class="qty"><button>−</button><input value="1"><button>+</button></div>
+            <div class="price"><span style="font-weight:800;font-size:18px;color:var(--navy)">1 000 ₽</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="cart-item">
+        <div class="thumb" style="background:linear-gradient(135deg,#c4361b,#e8662f)"></div>
+        <div style="flex:1">
+          <div class="spread"><h4>PUBG Mobile — 660 UC</h4><button class="x"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+          <div class="row" style="gap:6px;margin:6px 0"><span class="badge badge-instant">Моментально</span><span class="badge badge-stock"><span class="dot"></span>В наличии</span></div>
+          <div class="spread" style="margin-top:8px">
+            <div class="qty"><button>−</button><input value="1"><button>+</button></div>
+            <div class="price"><span style="font-weight:800;font-size:18px;color:var(--navy)">849 ₽</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="summary">
+      <div class="card card-pad">
+        <h3 style="margin-bottom:12px">Итого</h3>
+        <div class="promo-field"><input class="input" placeholder="Промокод"><button class="btn btn-secondary">OK</button></div>
+        <p class="tiny" style="color:var(--green);margin-bottom:10px">Промокод NICE10 применён: −10%</p>
+        <div class="sum-line"><span class="muted">Товары (2)</span><span>1 849 ₽</span></div>
+        <div class="sum-line"><span class="muted">Скидка по промокоду</span><span style="color:var(--green)">−185 ₽</span></div>
+        <div class="sum-line"><span class="muted">Скидка статуса (Silver)</span><span style="color:var(--green)">−55 ₽</span></div>
+        <div class="sum-line total"><span>К оплате</span><span>1 609 ₽</span></div>
+        <button class="btn btn-primary btn-block btn-lg" data-route="checkout" style="margin-top:14px">Оформить заказ</button>
+        <a class="btn btn-ghost btn-block" data-route="catalog" style="margin-top:8px">Продолжить покупки</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CHECKOUT ============ -->
+<section class="view" id="view-checkout">
+  <div class="breadcrumb"><a data-route="home">Главная</a><span class="sep">/</span><a data-route="cart">Корзина</span><span class="sep">/</span><span style="color:var(--ink)">Оформление</span></div>
+  <div class="steps"><div class="st done"><span class="n">✓</span>Корзина</div><div class="line"></div><div class="st active"><span class="n">2</span>Оформление</div><div class="line"></div><div class="st"><span class="n">3</span>Оплата</div></div>
+  <h1 class="page-title">Оформление заказа</h1>
+  <div class="checkout-layout">
+    <div>
+      <div class="section-card">
+        <h3 style="margin-bottom:14px">Данные для выдачи</h3>
+        <div class="field"><label>Логин Steam / ID аккаунта</label><input class="input" placeholder="Например: nicetry_user"><span class="hint">На этот аккаунт будет зачислена покупка</span></div>
+        <label class="checkbox" style="margin-bottom:8px"><input type="checkbox" checked> Сохранить данные в профиле</label>
+        <div class="field" style="margin-top:6px"><label>E-mail для чека и ключей</label><input class="input" value="ssarycev37@gmail.com"></div>
+      </div>
+      <div class="section-card">
+        <h3 style="margin-bottom:14px">Способ оплаты</h3>
+        <div class="pay-method active"><span class="radio"></span><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg><div><div class="pm-name">Баланс NiceTry</div><div class="tiny muted">Доступно: 1 240 ₽</div></div><span class="badge badge-amber" style="margin-left:auto">Не хватает 369 ₽</span></div>
+        <div class="pay-method"><span class="radio"></span><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 9h20"/></svg><div><div class="pm-name">Банковская карта / СБП</div><div class="tiny muted">Visa, Mastercard, Мир, СБП</div></div></div>
+        <div class="pay-method"><span class="radio"></span><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9h4a2 2 0 010 4H9zm0 0v8"/></svg><div><div class="pm-name">Криптовалюта</div><div class="tiny muted">USDT, BTC, TON</div></div></div>
+      </div>
+    </div>
+    <div class="summary">
+      <div class="card card-pad">
+        <h3 style="margin-bottom:12px">Ваш заказ</h3>
+        <div class="sum-line"><span class="muted">Steam — пополнение</span><span>1 000 ₽</span></div>
+        <div class="sum-line"><span class="muted">PUBG Mobile 660 UC</span><span>849 ₽</span></div>
+        <div class="sum-line"><span class="muted">Скидка</span><span style="color:var(--green)">−240 ₽</span></div>
+        <div class="sum-line total"><span>К оплате</span><span>1 609 ₽</span></div>
+        <button class="btn btn-primary btn-block btn-lg" id="payBtn" style="margin-top:14px">Оплатить 1 609 ₽</button>
+        <p class="tiny muted" style="text-align:center;margin-top:10px">Нажимая «Оплатить», вы соглашаетесь с офертой</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SUCCESS ============ -->
+<section class="view" id="view-success">
+  <div class="success-wrap">
+    <div class="success-ic"><svg class="ic" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>
+    <h1>Заказ № NT-104928 оплачен</h1>
+    <p class="muted" style="margin:8px 0 22px">Ключи выданы мгновенно и отправлены на почту. Копия всегда доступна в «Мои заказы».</p>
+    <div class="card card-pad" style="text-align:left">
+      <div class="spread" style="margin-bottom:6px"><h4>PUBG Mobile — 660 UC</h4><span class="badge badge-stock">Выдано</span></div>
+      <p class="tiny muted" style="margin-bottom:6px">Код активации — введите в игре или на midasbuy.com</p>
+      <div class="key-box"><span id="keyVal">PUBGM-7F3A-9KД2-QX84-LM50</span><button class="copy" id="copyKey"><svg class="ic ic-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>Копировать</button></div>
+      <hr class="divider" style="margin:14px 0">
+      <div class="spread" style="margin-bottom:6px"><h4>Пополнение Steam кошелька</h4><span class="badge badge-amber">В обработке</span></div>
+      <p class="tiny muted">Средства будут зачислены на аккаунт в течение 5–15 минут. Мы пришлём уведомление.</p>
+    </div>
+    <div class="row" style="justify-content:center;margin-top:20px;gap:10px">
+      <a class="btn btn-primary" data-route="profile">Мои заказы</a>
+      <a class="btn btn-ghost" data-route="catalog">В каталог</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AUTH ============ -->
+<section class="view" id="view-auth">
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-logo"><svg height="40" viewBox="0 0 250 56" xmlns="http://www.w3.org/2000/svg"><text x="40" y="42" font-family="Arial" font-weight="900" font-size="46" fill="#1C8CE3">N</text><text x="70" y="42" font-family="Arial" font-weight="900" font-size="46" fill="#0F1E2E">T</text><text x="112" y="31" font-family="'Segoe Script','Brush Script MT',cursive" font-style="italic" font-size="31" fill="#1C8CE3">Nice</text><text x="158" y="50" font-family="'Segoe Script','Brush Script MT',cursive" font-style="italic" font-size="31" fill="#0F1E2E">try</text></svg></div>
+      <div id="authStep1">
+        <h2 style="margin-bottom:6px">Вход и регистрация</h2>
+        <p class="muted small" style="margin-bottom:20px">Введите e-mail — пришлём ссылку для входа без пароля</p>
+        <div class="field" style="text-align:left"><input class="input" id="authEmail" placeholder="you@example.com" type="email"></div>
+        <button class="btn btn-primary btn-block btn-lg" id="authSend">Получить ссылку</button>
+        <p class="tiny muted" style="margin-top:14px">Продолжая, вы принимаете оферту и политику конфиденциальности</p>
+      </div>
+      <div id="authStep2" class="hidden">
+        <div class="mail-ic"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>
+        <h2 style="margin-bottom:6px">Проверьте почту</h2>
+        <p class="muted small" style="margin-bottom:18px">Мы отправили ссылку для входа на <b id="sentTo">you@example.com</b>. Ссылка действует 15 минут.</p>
+        <a class="btn btn-primary btn-block btn-lg" data-route="profile">Я перешёл по ссылке</a>
+        <button class="btn btn-ghost btn-block" id="authBack" style="margin-top:8px">Изменить e-mail</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PROFILE ============ -->
+<section class="view" id="view-profile">
+  <div class="breadcrumb"><a data-route="home">Главная</a><span class="sep">/</span><span style="color:var(--ink)">Личный кабинет</span></div>
+  <div class="profile-layout">
+    <aside class="side-menu">
+      <div class="usr"><div class="av">СС</div><div><div style="font-weight:700">Сергей</div><div class="tiny muted">ssarycev37@gmail.com</div></div></div>
+      <a class="active" data-ptab="balance"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>Баланс</a>
+      <a data-ptab="orders"><svg class="ic" viewBox="0 0 24 24"><path d="M6 2h9l4 4v16H6z"/><path d="M9 12h6M9 16h6"/></svg>Мои заказы <span class="badge">12</span></a>
+      <a data-ptab="telegram"><svg class="ic" viewBox="0 0 24 24"><path d="M21 4L3 11l5 2 2 6 3-4 5 4z"/></svg>Привязка Telegram</a>
+      <a data-ptab="status"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg>Статус и скидка</a>
+      <a data-ptab="referral"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0112 0M17 11l2 2 4-4"/></svg>Реферальная программа</a>
+      <a data-ptab="docs"><svg class="ic" viewBox="0 0 24 24"><path d="M6 2h9l4 4v16H6z"/></svg>Документы</a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M16 17l5-5-5-5M21 12H9M12 19H5V5h7"/></svg>Выйти</a>
+    </aside>
+    <div>
+      <!-- balance -->
+      <div class="ppane active" id="ptab-balance">
+        <div class="balance-card">
+          <div><div class="lbl">Доступный баланс</div><div class="amt">1 240 ₽</div></div>
+          <button class="btn btn-block" style="background:#fff;color:var(--blue-700);max-width:200px" onclick="openTopup()">Пополнить баланс</button>
+        </div>
+        <div class="section-card" style="margin-top:16px">
+          <h3 style="margin-bottom:14px">Пополнить баланс</h3>
+          <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:14px">
+            <button class="chip active">500 ₽</button><button class="chip">1 000 ₽</button><button class="chip">2 500 ₽</button><button class="chip">5 000 ₽</button><button class="chip">Другая сумма</button>
+          </div>
+          <div class="row" style="gap:10px"><div class="pay-method active" style="flex:1;margin:0"><span class="radio"></span>Банковская карта / СБП</div><div class="pay-method" style="flex:1;margin:0"><span class="radio"></span>Криптовалюта</div></div>
+          <button class="btn btn-primary" style="margin-top:14px">Пополнить на 500 ₽</button>
+        </div>
+        <div class="section-card">
+          <h3 style="margin-bottom:6px">История операций</h3>
+          <div class="tbl-wrap" style="border:0"><table class="data"><thead><tr><th>Дата</th><th>Операция</th><th>Сумма</th></tr></thead><tbody>
+            <tr><td>28.05.2026</td><td>Пополнение, Карта</td><td style="color:var(--green);font-weight:600">+1 000 ₽</td></tr>
+            <tr><td>27.05.2026</td><td>Заказ NT-104871</td><td style="font-weight:600">−849 ₽</td></tr>
+            <tr><td>24.05.2026</td><td>Бонус за реферала</td><td style="color:var(--green);font-weight:600">+120 ₽</td></tr>
+          </tbody></table></div>
+        </div>
+      </div>
+      <!-- orders -->
+      <div class="ppane" id="ptab-orders">
+        <div class="spread" style="margin-bottom:14px"><h2>Мои заказы</h2></div>
+        <div class="chips" style="margin-bottom:14px"><button class="chip active">Все</button><button class="chip">Оплачен</button><button class="chip">Выдан</button><button class="chip">В обработке</button><button class="chip">Отменён</button></div>
+        <div class="tbl-wrap"><table class="data"><thead><tr><th>№ заказа</th><th>Товар</th><th>Дата</th><th>Сумма</th><th>Статус</th><th></th></tr></thead><tbody>
+          <tr><td class="mono">NT-104928</td><td>PUBG Mobile 660 UC</td><td>30.05.2026</td><td>849 ₽</td><td><span class="badge badge-stock">Выдан</span></td><td><a class="small" style="color:var(--blue-700);font-weight:600" onclick="openKeyModal()">Ключ</a></td></tr>
+          <tr><td class="mono">NT-104871</td><td>Пополнение Steam</td><td>27.05.2026</td><td>1 000 ₽</td><td><span class="badge badge-amber">В обработке</span></td><td></td></tr>
+          <tr><td class="mono">NT-104102</td><td>Discord Nitro 1 мес.</td><td>19.05.2026</td><td>399 ₽</td><td><span class="badge badge-stock">Выдан</span></td><td><a class="small" style="color:var(--blue-700);font-weight:600" onclick="openKeyModal()">Ключ</a></td></tr>
+          <tr><td class="mono">NT-103980</td><td>Roblox 800 Robux</td><td>11.05.2026</td><td>749 ₽</td><td><span class="badge badge-out">Отменён</span></td><td></td></tr>
+        </tbody></table></div>
+      </div>
+      <!-- telegram -->
+      <div class="ppane" id="ptab-telegram">
+        <div class="section-card" style="text-align:center;padding:30px">
+          <div class="mail-ic"><svg class="ic" viewBox="0 0 24 24"><path d="M21 4L3 11l5 2 2 6 3-4 5 4z"/></svg></div>
+          <h2 style="margin-bottom:6px">Привязать Telegram</h2>
+          <p class="muted small" style="max-width:440px;margin:0 auto 18px">Один аккаунт для сайта и бота. Отправьте код боту @NiceTryBot — заказы и баланс будут синхронизированы.</p>
+          <div class="key-box" style="max-width:300px;margin:0 auto 16px;justify-content:center"><span style="font-size:24px;letter-spacing:4px">7 4 2 9 1 5</span></div>
+          <a class="btn btn-primary" href="#">Открыть @NiceTryBot</a>
+        </div>
+      </div>
+      <!-- status -->
+      <div class="ppane" id="ptab-status">
+        <div class="balance-card" style="background:linear-gradient(120deg,#3a3f52,#5b6172)">
+          <div><div class="lbl" style="color:#d7dbe6">Ваш статус</div><div class="amt">Silver · −5%</div></div>
+          <svg width="54" height="54" fill="none" stroke="#fff" stroke-width="1.6" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg>
+        </div>
+        <div class="section-card" style="margin-top:16px">
+          <h3 style="margin-bottom:6px">Прогресс до Gold (−8%)</h3>
+          <p class="small muted" style="margin-bottom:10px">Осталось потратить 3 100 ₽</p>
+          <div style="height:10px;background:var(--blue-50);border-radius:6px;overflow:hidden"><div style="width:62%;height:100%;background:linear-gradient(90deg,var(--blue),var(--blue-700))"></div></div>
+          <div class="spread small muted" style="margin-top:6px"><span>6 900 ₽</span><span>10 000 ₽</span></div>
+        </div>
+        <div class="row" style="gap:12px;align-items:stretch">
+          <div class="section-card" style="flex:1;margin:0"><div class="badge" style="margin-bottom:6px">Bronze</div><div class="small muted">От 0 ₽ · без скидки</div></div>
+          <div class="section-card" style="flex:1;margin:0;border-color:var(--blue);background:var(--blue-50)"><div class="badge badge-instant" style="margin-bottom:6px">Silver · текущий</div><div class="small muted">От 5 000 ₽ · −5%</div></div>
+          <div class="section-card" style="flex:1;margin:0"><div class="badge badge-amber" style="margin-bottom:6px">Gold</div><div class="small muted">От 10 000 ₽ · −8%</div></div>
+        </div>
+      </div>
+      <!-- referral -->
+      <div class="ppane" id="ptab-referral">
+        <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+          <div class="stat"><div class="lbl">Приглашено</div><div class="val">14</div></div>
+          <div class="stat"><div class="lbl">Заработано</div><div class="val">1 680 ₽</div></div>
+          <div class="stat"><div class="lbl">Доступно к выводу</div><div class="val">420 ₽</div></div>
+        </div>
+        <div class="section-card">
+          <h3 style="margin-bottom:6px">Ваша реферальная ссылка</h3>
+          <p class="small muted" style="margin-bottom:10px">Получайте 5% с каждой покупки приглашённых друзей</p>
+          <div class="promo-field"><input class="input" value="https://nicetry.store/r/SERGEY-37" readonly><button class="btn btn-primary" onclick="toast('Ссылка скопирована','ok')">Копировать</button></div>
+        </div>
+      </div>
+      <!-- docs -->
+      <div class="ppane" id="ptab-docs">
+        <div class="section-card"><a class="info-row" href="#" style="text-decoration:none"><svg class="ic" viewBox="0 0 24 24"><path d="M6 2h9l4 4v16H6z"/></svg><span class="v" style="margin-left:0;color:var(--ink)">Публичная оферта</span><svg class="ic" viewBox="0 0 24 24" style="margin-left:auto;color:var(--muted-2)"><path d="M9 6l6 6-6 6"/></svg></a>
+          <a class="info-row" href="#" style="text-decoration:none"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg><span class="v" style="margin-left:0;color:var(--ink)">Политика конфиденциальности</span><svg class="ic" viewBox="0 0 24 24" style="margin-left:auto;color:var(--muted-2)"><path d="M9 6l6 6-6 6"/></svg></a>
+          <a class="info-row" href="#" style="text-decoration:none"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span class="v" style="margin-left:0;color:var(--ink)">Поддержка в Telegram</span><svg class="ic" viewBox="0 0 24 24" style="margin-left:auto;color:var(--muted-2)"><path d="M9 6l6 6-6 6"/></svg></a></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ADMIN ============ -->
+<section class="view" id="view-admin">
+  <div class="admin-layout">
+    <aside class="admin-side">
+      <div class="brand"><svg width="24" height="24" fill="none" stroke="#1C8CE3" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg>NiceTry Admin</div>
+      <a class="active" data-atab="dash"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Дашборд</a>
+      <a data-atab="products"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>Каталог</a>
+      <a data-atab="orders"><svg class="ic" viewBox="0 0 24 24"><path d="M6 2h9l4 4v16H6z"/><path d="M9 12h6M9 16h6"/></svg>Заказы <span class="badge badge-amber" style="margin-left:auto">7</span></a>
+      <a data-atab="users"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0112 0M17 8h4M19 6v4"/></svg>Пользователи</a>
+      <a data-atab="promo"><svg class="ic" viewBox="0 0 24 24"><path d="M9 5H5v4l10 10 4-4z"/><circle cx="7.5" cy="7.5" r="1"/></svg>Промокоды</a>
+      <a data-atab="banners"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-4 4 3 3-2 6 4"/></svg>Баннеры</a>
+      <a data-atab="analytics"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Аналитика</a>
+      <a data-atab="utm"><svg class="ic" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007 0l2-2a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-2 2a5 5 0 007 7l1-1"/></svg>UTM-метки</a>
+      <a data-atab="mailing"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18v14H3z"/><path d="M3 7l9 6 9-6"/></svg>Рассылки</a>
+      <div style="border-top:1px solid rgba(255,255,255,.08);margin:8px 0"></div>
+      <a data-route="home"><svg class="ic" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>На витрину</a>
+    </aside>
+    <div>
+      <!-- DASH -->
+      <div class="apane active" id="atab-dash">
+        <div class="spread" style="margin-bottom:18px"><h1>Дашборд</h1><div class="row" style="gap:8px"><select class="select" style="height:38px;width:auto"><option>Последние 30 дней</option><option>7 дней</option><option>Сегодня</option></select><button class="btn btn-secondary btn-sm">Экспорт</button></div></div>
+        <div class="stat-grid">
+          <div class="stat"><div class="lbl"><svg class="ic" viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Выручка</div><div class="val">1 284 500 ₽</div><div class="tr up">↑ 12,4% к прошлому</div></div>
+          <div class="stat"><div class="lbl"><svg class="ic" viewBox="0 0 24 24"><path d="M6 2h9l4 4v16H6z"/></svg>Заказы</div><div class="val">3 942</div><div class="tr up">↑ 8,1%</div></div>
+          <div class="stat"><div class="lbl"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>Средний чек</div><div class="val">1 089 ₽</div><div class="tr down">↓ 1,2%</div></div>
+          <div class="stat"><div class="lbl"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0112 0"/></svg>Новые юзеры</div><div class="val">612</div><div class="tr up">↑ 19,7%</div></div>
+        </div>
+        <div class="row" style="gap:16px;align-items:stretch;margin-bottom:16px">
+          <div class="chart-card" style="flex:2"><div class="spread" style="margin-bottom:8px"><h3>Выручка по дням</h3><span class="badge badge-stock">+12,4%</span></div>
+            <div class="bars"><div class="b"><div class="fill" style="height:45%"></div><span class="bl">Пн</span></div><div class="b"><div class="fill" style="height:62%"></div><span class="bl">Вт</span></div><div class="b"><div class="fill" style="height:54%"></div><span class="bl">Ср</span></div><div class="b"><div class="fill" style="height:78%"></div><span class="bl">Чт</span></div><div class="b"><div class="fill" style="height:88%"></div><span class="bl">Пт</span></div><div class="b"><div class="fill" style="height:100%"></div><span class="bl">Сб</span></div><div class="b"><div class="fill" style="height:72%"></div><span class="bl">Вс</span></div></div>
+          </div>
+          <div class="chart-card" style="flex:1"><h3 style="margin-bottom:14px">Продажи по категориям</h3>
+            <div class="row" style="gap:18px"><div class="donut" style="background:conic-gradient(var(--blue) 0 42%,#5BB1F0 42% 67%,#0F62A8 67% 84%,#BFDDF7 84% 100%)"></div>
+              <div class="legend"><div class="li"><span class="dot" style="background:var(--blue)"></span>Игровая валюта 42%</div><div class="li"><span class="dot" style="background:#5BB1F0"></span>Ключи 25%</div><div class="li"><span class="dot" style="background:#0F62A8"></span>Подписки 17%</div><div class="li"><span class="dot" style="background:#BFDDF7"></span>Gift-карты 16%</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="row" style="gap:16px;align-items:stretch">
+          <div class="chart-card" style="flex:1"><h3 style="margin-bottom:12px">Топ товаров</h3>
+            <div class="info-row"><span>Steam — пополнение</span><span class="v">842 прод.</span></div><div class="info-row"><span>PUBG Mobile UC</span><span class="v">631 прод.</span></div><div class="info-row"><span>Discord Nitro</span><span class="v">414 прод.</span></div><div class="info-row"><span>Roblox Robux</span><span class="v">388 прод.</span></div>
+          </div>
+          <div class="chart-card" style="flex:1"><h3 style="margin-bottom:12px">Способы оплаты</h3>
+            <div class="info-row"><span>Карта / СБП</span><span class="v">58%</span></div><div class="info-row"><span>Баланс</span><span class="v">27%</span></div><div class="info-row"><span>Криптовалюта</span><span class="v">15%</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- PRODUCTS -->
+      <div class="apane" id="atab-products">
+        <div class="spread" style="margin-bottom:16px"><h1>Каталог товаров</h1><button class="btn btn-primary" onclick="openModal('modalProduct')"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Добавить товар</button></div>
+        <div class="tbl-wrap"><table class="data"><thead><tr><th>Товар</th><th>Категория</th><th>Тип выдачи</th><th>Цена</th><th>Остаток</th><th>Статус</th><th></th></tr></thead><tbody>
+          <tr><td>Steam — пополнение</td><td>Пополнения</td><td><span class="badge">Авто</span></td><td>от 100 ₽</td><td>∞</td><td><span class="badge badge-stock">Активен</span></td><td><a class="small" style="color:var(--blue-700)">Изм.</a></td></tr>
+          <tr><td>PUBG Mobile 660 UC</td><td>Игровая валюта</td><td><span class="badge badge-instant">Момент.</span></td><td>849 ₽</td><td>312 кл.</td><td><span class="badge badge-stock">Активен</span></td><td><a class="small" style="color:var(--blue-700)">Изм.</a></td></tr>
+          <tr><td>Genshin Impact — благословение</td><td>Пополнения</td><td><span class="badge">Ручное</span></td><td>от 500 ₽</td><td>∞</td><td><span class="badge badge-stock">Активен</span></td><td><a class="small" style="color:var(--blue-700)">Изм.</a></td></tr>
+          <tr><td>Steam Gift Card $50</td><td>Gift-карты</td><td><span class="badge badge-instant">Момент.</span></td><td>5 290 ₽</td><td>0 кл.</td><td><span class="badge badge-out">Скрыт</span></td><td><a class="small" style="color:var(--blue-700)">Изм.</a></td></tr>
+          <tr><td>Аккаунт Steam под ключ</td><td>Аккаунты</td><td><span class="badge badge-amber">Ручная выдача</span></td><td>2 900 ₽</td><td>5 шт.</td><td><span class="badge badge-stock">Активен</span></td><td><a class="small" style="color:var(--blue-700)">Изм.</a></td></tr>
+        </tbody></table></div>
+      </div>
+      <!-- ORDERS -->
+      <div class="apane" id="atab-orders">
+        <h1 style="margin-bottom:16px">Заказы</h1>
+        <div class="chips" style="margin-bottom:14px"><button class="chip active">Все</button><button class="chip">Новые</button><button class="chip">Требуют выдачи</button><button class="chip">Выданы</button><button class="chip">Отменёны</button></div>
+        <div class="tbl-wrap"><table class="data"><thead><tr><th>№</th><th>Клиент</th><th>Товар</th><th>Сумма</th><th>Оплата</th><th>Статус</th><th>Действие</th></tr></thead><tbody>
+          <tr><td class="mono">NT-104928</td><td>Сергей С.</td><td>PUBG Mobile 660 UC</td><td>849 ₽</td><td>Карта</td><td><span class="badge badge-stock">Выдан</span></td><td class="muted">—</td></tr>
+          <tr><td class="mono">NT-104927</td><td>Анна К.</td><td>Genshin — благосл.</td><td>1 290 ₽</td><td>Баланс</td><td><span class="badge badge-amber">Требует выдачи</span></td><td><button class="btn btn-primary btn-sm">Выдать</button></td></tr>
+          <tr><td class="mono">NT-104926</td><td>Иван П.</td><td>Аккаунт Steam</td><td>2 900 ₽</td><td>Крипта</td><td><span class="badge badge-amber">Требует выдачи</span></td><td><button class="btn btn-primary btn-sm">Выдать</button></td></tr>
+          <tr><td class="mono">NT-104925</td><td>Олег Р.</td><td>Discord Nitro</td><td>399 ₽</td><td>Карта</td><td><span class="badge badge-stock">Выдан</span></td><td><button class="btn btn-danger btn-sm">Отмена</button></td></tr>
+        </tbody></table></div>
+      </div>
+      <!-- USERS -->
+      <div class="apane" id="atab-users">
+        <div class="spread" style="margin-bottom:16px"><h1>Пользователи</h1><input class="input" placeholder="Поиск по email / ID" style="max-width:280px"></div>
+        <div class="tbl-wrap"><table class="data"><thead><tr><th>Пользователь</th><th>Баланс</th><th>Заказов</th><th>Статус</th><th>Рефералы</th><th></th></tr></thead><tbody>
+          <tr><td>ssarycev37@gmail.com</td><td>1 240 ₽</td><td>12</td><td><span class="badge badge-instant">Silver</span></td><td>14</td><td><a class="small" style="color:var(--blue-700)">Карточка</a></td></tr>
+          <tr><td>anna.k@mail.ru</td><td>320 ₽</td><td>4</td><td><span class="badge">Bronze</span></td><td>2</td><td><a class="small" style="color:var(--blue-700)">Карточка</a></td></tr>
+          <tr><td>ivan.p@yandex.ru</td><td>5 600 ₽</td><td>38</td><td><span class="badge badge-amber">Gold</span></td><td>21</td><td><a class="small" style="color:var(--blue-700)">Карточка</a></td></tr>
+        </tbody></table></div>
+      </div>
+      <!-- PROMO -->
+      <div class="apane" id="atab-promo">
+        <div class="spread" style="margin-bottom:16px"><h1>Промокоды</h1><button class="btn btn-primary"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Создать</button></div>
+        <div class="tbl-wrap"><table class="data"><thead><tr><th>Код</th><th>Скидка</th><th>Использовано</th><th>Лимит</th><th>До</th><th>Статус</th></tr></thead><tbody>
+          <tr><td class="mono">NICE10</td><td>−10%</td><td>1 204</td><td>∞</td><td>31.12.2026</td><td><span class="badge badge-stock">Активен</span></td></tr>
+          <tr><td class="mono">SUMMER300</td><td>−300 ₽</td><td>540</td><td>1 000</td><td>31.08.2026</td><td><span class="badge badge-stock">Активен</span></td></tr>
+          <tr><td class="mono">WELCOME</td><td>−5%</td><td>3 871</td><td>∞</td><td>—</td><td><span class="badge badge-out">Отключён</span></td></tr>
+        </tbody></table></div>
+      </div>
+      <!-- BANNERS -->
+      <div class="apane" id="atab-banners">
+        <div class="spread" style="margin-bottom:16px"><h1>Баннеры главной</h1><button class="btn btn-primary">Добавить баннер</button></div>
+        <div class="row" style="gap:14px;align-items:stretch;flex-wrap:wrap">
+          <div class="section-card" style="flex:1;min-width:260px;margin:0"><div class="promo main" style="min-height:120px;margin-bottom:10px"><h3 style="font-size:17px">Пополни Steam без комиссий</h3></div><div class="spread"><span class="badge badge-stock">Опубликован</span><label class="checkbox"><input type="checkbox" checked> Активен</label></div></div>
+          <div class="section-card" style="flex:1;min-width:260px;margin:0"><div class="promo side" style="min-height:120px;margin-bottom:10px"><h3 style="font-size:17px">Telegram — розыгрыши</h3></div><div class="spread"><span class="badge badge-stock">Опубликован</span><label class="checkbox"><input type="checkbox" checked> Активен</label></div></div>
+        </div>
+      </div>
+      <!-- ANALYTICS -->
+      <div class="apane" id="atab-analytics">
+        <h1 style="margin-bottom:16px">Аналитика</h1>
+        <div class="stat-grid"><div class="stat"><div class="lbl">Конверсия</div><div class="val">4,8%</div><div class="tr up">↑ 0,6п.п.</div></div><div class="stat"><div class="lbl">Возвраты</div><div class="val">0,7%</div><div class="tr down">↓ 0,1п.п.</div></div><div class="stat"><div class="lbl">LTV</div><div class="val">4 120 ₽</div><div class="tr up">↑ 5,3%</div></div><div class="stat"><div class="lbl">Реф. доля</div><div class="val">18%</div><div class="tr up">↑ 2,0п.п.</div></div></div>
+        <div class="chart-card"><h3 style="margin-bottom:8px">Выручка по месяцам</h3><div class="bars"><div class="b"><div class="fill" style="height:40%"></div><span class="bl">Янв</span></div><div class="b"><div class="fill" style="height:52%"></div><span class="bl">Фев</span></div><div class="b"><div class="fill" style="height:60%"></div><span class="bl">Мар</span></div><div class="b"><div class="fill" style="height:74%"></div><span class="bl">Апр</span></div><div class="b"><div class="fill" style="height:92%"></div><span class="bl">Май</span></div><div class="b"><div class="fill" style="height:68%"></div><span class="bl">Июн</span></div></div></div>
+      </div>
+      <!-- UTM -->
+      <div class="apane" id="atab-utm">
+        <h1 style="margin-bottom:16px">UTM-метки</h1>
+        <div class="tbl-wrap"><table class="data"><thead><tr><th>Источник</th><th>Кампания</th><th>Переходы</th><th>Заказы</th><th>Выручка</th></tr></thead><tbody>
+          <tr><td>telegram</td><td>tg_channel_may</td><td>14 208</td><td>892</td><td>684 200 ₽</td></tr>
+          <tr><td>vk</td><td>vk_target_uc</td><td>8 120</td><td>410</td><td>298 400 ₽</td></tr>
+          <tr><td>youtube</td><td>yt_review</td><td>3 540</td><td>156</td><td>121 900 ₽</td></tr>
+        </tbody></table></div>
+      </div>
+      <!-- MAILING -->
+      <div class="apane" id="atab-mailing">
+        <div class="spread" style="margin-bottom:16px"><h1>Рассылки</h1><button class="btn btn-primary">Создать рассылку</button></div>
+        <div class="section-card">
+          <div class="field"><label>Название</label><input class="input" placeholder="Например: Скидки на UC"></div>
+          <div class="row" style="gap:12px"><div class="field" style="flex:1"><label>Сегмент</label><select class="select"><option>Все пользователи</option><option>Gold + Silver</option><option>Без заказов 30 дней</option></select></div><div class="field" style="flex:1"><label>Канал</label><select class="select"><option>Telegram + Email</option><option>Только Telegram</option><option>Только Email</option></select></div><div class="field" style="flex:1"><label>Расписание</label><input class="input" type="datetime-local"></div></div>
+          <div class="field"><label>Текст</label><textarea class="input" rows="3" placeholder="Текст сообщения…"></textarea></div>
+          <button class="btn btn-primary">Запланировать</button>
+        </div>
+        <div class="tbl-wrap"><table class="data"><thead><tr><th>Рассылка</th><th>Сегмент</th><th>Отправлено</th><th>Открытия</th><th>Статус</th></tr></thead><tbody>
+          <tr><td>Майские скидки</td><td>Все</td><td>18 402</td><td>42%</td><td><span class="badge badge-stock">Отправлена</span></td></tr>
+          <tr><td>Возврат неактивных</td><td>Без заказов 30д</td><td>—</td><td>—</td><td><span class="badge badge-amber">Запланирована</span></td></tr>
+        </tbody></table></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 404 ============ -->
+<section class="view" id="view-404">
+  <div class="empty"><div class="e404">404</div><h2 style="margin:10px 0 8px">Страница не найдена</h2><p class="muted" style="margin-bottom:18px">Возможно, товар снят с продажи или ссылка устарела.</p><a class="btn btn-primary" data-route="home">На главную</a></div>
+</section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="site">
+  <div class="container">
+    <div class="foot-grid">
+      <div class="foot-about">
+        <svg height="34" viewBox="0 0 250 56" xmlns="http://www.w3.org/2000/svg"><text x="0" y="42" font-family="Arial" font-weight="900" font-size="46" fill="#1C8CE3">N</text><text x="30" y="42" font-family="Arial" font-weight="900" font-size="46" fill="#ffffff">T</text><text x="72" y="31" font-family="'Segoe Script','Brush Script MT',cursive" font-style="italic" font-size="31" fill="#7cc6ff">Nice</text><text x="118" y="50" font-family="'Segoe Script','Brush Script MT',cursive" font-style="italic" font-size="31" fill="#ffffff">try</text></svg>
+        <p>Магазин цифровых товаров: пополнение игровых аккаунтов, ключи, Gift-карты и подписки. Быстрая выдача и поддержка 24/7.</p>
+        <div class="foot-social">
+          <a href="#" aria-label="Telegram"><svg class="ic" viewBox="0 0 24 24" stroke="#fff"><path d="M21 4L3 11l5 2 2 6 3-4 5 4z"/></svg></a>
+          <a href="#" aria-label="VK"><svg class="ic" viewBox="0 0 24 24" stroke="#fff"><path d="M4 8c1 6 5 9 9 9h2v-3c1 0 2 1 3 3h3c-1-3-3-4-3-4s2-2 3-5h-3c-1 2-2 3-3 3V8h-3v5c-2 0-4-3-4-5z"/></svg></a>
+          <a href="#" aria-label="YouTube"><svg class="ic" viewBox="0 0 24 24" stroke="#fff"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M10 9l5 3-5 3z" fill="#fff"/></svg></a>
+        </div>
+      </div>
+      <div><h4>Каталог</h4><a data-route="catalog">Пополнение Steam</a><a data-route="catalog">Игровая валюта</a><a data-route="catalog">Ключи и коды</a><a data-route="catalog">Подписки</a><a data-route="catalog">Gift-карты</a></div>
+      <div><h4>Помощь</h4><a href="#">Как купить</a><a href="#">Способы оплаты</a><a href="#">Гарантии и возврат</a><a href="#">Поддержка 24/7</a><a href="#">Вопросы и ответы</a></div>
+      <div><h4>Компания</h4><a href="#">О нас</a><a href="#">Публичная оферта</a><a href="#">Политика конфиденциальности</a><a href="#">Реферальная программа</a></div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 NiceTry. Все права защищены.</span>
+      <div class="pays"><span>VISA</span><span>MasterCard</span><span>МИР</span><span>СБП</span><span>USDT</span><span>BTC</span></div>
+    </div>
+  </div>
+</footer>
+
+<!-- mobile drawer -->
+<div class="mobile-drawer" id="drawer">
+  <div class="back" onclick="closeDrawer()"></div>
+  <div class="panel">
+    <div class="spread" style="margin-bottom:14px"><svg height="28" viewBox="0 0 250 56"><text x="0" y="42" font-family="Arial" font-weight="900" font-size="46" fill="#1C8CE3">N</text><text x="30" y="42" font-family="Arial" font-weight="900" font-size="46" fill="#0F1E2E">T</text></svg><button class="iconbtn" onclick="closeDrawer()"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <a data-route="catalog"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Весь каталог</a>
+    <a data-route="catalog"><svg class="ic" viewBox="0 0 24 24"><path d="M5 3h14v18l-7-4-7 4z"/></svg>Steam</a>
+    <a data-route="catalog"><svg class="ic" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/></svg>Mobile-игры</a>
+    <a data-route="catalog"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16v12H4z"/></svg>Подписки</a>
+    <a data-route="cart"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.4a1.5 1.5 0 001.5 1.2h8.6"/></svg>Корзина</a>
+    <a data-route="profile"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/></svg>Личный кабинет</a>
+    <a data-route="admin"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg>Админ-панель</a>
+  </div>
+</div>
+
+<!-- modals -->
+<div class="modal-back" id="modalKey"><div class="modal"><div class="spread" style="margin-bottom:12px"><h3>Ключ заказа NT-104928</h3><button class="iconbtn" onclick="closeModal('modalKey')"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><p class="small muted" style="margin-bottom:8px">PUBG Mobile — 660 UC</p><div class="key-box"><span>PUBGM-7F3A-9KД2-QX84-LM50</span><button class="copy" onclick="toast('Ключ скопирован','ok')"><svg class="ic ic-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button></div></div></div>
+
+<div class="modal-back" id="modalProduct"><div class="modal" style="max-width:520px"><div class="spread" style="margin-bottom:14px"><h3>Новый товар</h3><button class="iconbtn" onclick="closeModal('modalProduct')"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="field"><label>Название</label><input class="input" placeholder="Например: PUBG Mobile 660 UC"></div>
+  <div class="row" style="gap:12px"><div class="field" style="flex:1"><label>Категория</label><select class="select"><option>Игровая валюта</option><option>Ключи игр</option><option>Подписки</option><option>Gift-карты</option></select></div><div class="field" style="flex:1"><label>Тип выдачи</label><select class="select"><option>Моментальная (ключ)</option><option>Пополнение (авто)</option><option>Пополнение (ручное)</option><option>Ручная выдача</option></select></div></div>
+  <div class="row" style="gap:12px"><div class="field" style="flex:1"><label>Цена, ₽</label><input class="input" placeholder="849"></div><div class="field" style="flex:1"><label>Файл с ключами</label><input class="input" type="file"></div></div>
+  <div class="row" style="gap:10px;margin-top:6px"><button class="btn btn-primary" onclick="closeModal('modalProduct');toast('Товар сохранён','ok')">Сохранить</button><button class="btn btn-ghost" onclick="closeModal('modalProduct')">Отмена</button></div>
+</div></div>
+
+<div class="toast-wrap" id="toasts"></div>
+<script>
+const money = n => n.toLocaleString('ru-RU').replace(/,/g,' ') + ' \u20bd';
+const COVERS = {
+  steam:'linear-gradient(135deg,#1b2838,#2a475e)', pubg:'linear-gradient(135deg,#b8431a,#e8932f)',
+  fortnite:'linear-gradient(135deg,#2b1b6e,#5a3df0)', roblox:'linear-gradient(135deg,#363b40,#10202c)',
+  genshin:'linear-gradient(135deg,#1f6f8b,#34c0c9)', brawl:'linear-gradient(135deg,#7a1fb0,#d23bd2)',
+  discord:'linear-gradient(135deg,#4453c4,#5865F2)', gift:'linear-gradient(135deg,#0F62A8,#1C8CE3)',
+  mlbb:'linear-gradient(135deg,#143a8a,#2d7bd6)', valorant:'linear-gradient(135deg,#b3203a,#ff4655)'
+};
+const TYPE_LABEL = {instant:'\u041c\u043e\u043c\u0435\u043d\u0442\u0430\u043b\u044c\u043d\u043e',auto:'\u041f\u043e\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u0435 \u00b7 \u0430\u0432\u0442\u043e',manual:'\u041f\u043e\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u0435 \u00b7 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440',handmade:'\u0420\u0443\u0447\u043d\u0430\u044f \u0432\u044b\u0434\u0430\u0447\u0430'};
+const PRODUCTS = [
+ {id:1,title:'\u041f\u043e\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u0435 Steam \u043a\u043e\u0448\u0435\u043b\u044c\u043a\u0430',cat:'\u041f\u043e\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f',plat:'STEAM',type:'auto',price:100,rating:4.9,sales:8421,stock:true,cover:'steam'},
+ {id:2,title:'PUBG Mobile \u2014 660 UC',cat:'\u0418\u0433\u0440\u043e\u0432\u0430\u044f \u0432\u0430\u043b\u044e\u0442\u0430',plat:'PUBG MOBILE',type:'instant',price:849,old:990,rating:4.8,sales:6310,stock:true,cover:'pubg',hot:true},
+ {id:3,title:'Fortnite \u2014 1000 V-Bucks',cat:'\u0418\u0433\u0440\u043e\u0432\u0430\u044f \u0432\u0430\u043b\u044e\u0442\u0430',plat:'FORTNITE',type:'instant',price:729,rating:4.7,sales:2980,stock:true,cover:'fortnite'},
+ {id:4,title:'Roblox \u2014 800 Robux',cat:'\u0418\u0433\u0440\u043e\u0432\u0430\u044f \u0432\u0430\u043b\u044e\u0442\u0430',plat:'ROBLOX',type:'instant',price:749,old:850,rating:4.8,sales:3880,stock:true,cover:'roblox'},
+ {id:5,title:'Genshin Impact \u2014 \u0431\u043b\u0430\u0433\u043e\u0441\u043b\u043e\u0432\u0435\u043d\u0438\u0435 \u041b\u0443\u043d\u044b',cat:'\u041f\u043e\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f',plat:'GENSHIN',type:'manual',price:500,rating:4.9,sales:1740,stock:true,cover:'genshin'},
+ {id:6,title:'Brawl Stars \u2014 \u0431\u0440\u0430\u0432\u043b-\u043f\u0430\u0441\u0441',cat:'\u0418\u0433\u0440\u043e\u0432\u0430\u044f \u0432\u0430\u043b\u044e\u0442\u0430',plat:'BRAWL STARS',type:'instant',price:399,rating:4.6,sales:2210,stock:true,cover:'brawl'},
+ {id:7,title:'Discord Nitro \u2014 1 \u043c\u0435\u0441\u044f\u0446',cat:'\u041f\u043e\u0434\u043f\u0438\u0441\u043a\u0438',plat:'DISCORD',type:'instant',price:399,old:499,rating:4.9,sales:4140,stock:true,cover:'discord'},
+ {id:8,title:'Steam Gift Card $50',cat:'Gift-\u043a\u0430\u0440\u0442\u044b',plat:'STEAM',type:'instant',price:5290,rating:4.8,sales:870,stock:false,cover:'gift'},
+ {id:9,title:'Mobile Legends \u2014 \u0430\u043b\u043c\u0430\u0437\u044b',cat:'\u041f\u043e\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f',plat:'MLBB',type:'auto',price:120,rating:4.7,sales:1530,stock:true,cover:'mlbb'},
+ {id:10,title:'Valorant \u2014 Points',cat:'\u0418\u0433\u0440\u043e\u0432\u0430\u044f \u0432\u0430\u043b\u044e\u0442\u0430',plat:'VALORANT',type:'manual',price:600,rating:4.8,sales:990,stock:true,cover:'valorant'},
+ {id:11,title:'\u0410\u043a\u043a\u0430\u0443\u043d\u0442 Steam \u043f\u043e\u0434 \u043a\u043b\u044e\u0447',cat:'\u0410\u043a\u043a\u0430\u0443\u043d\u0442\u044b',plat:'STEAM',type:'handmade',price:2900,rating:4.7,sales:312,stock:true,cover:'steam'},
+ {id:12,title:'Xbox Game Pass \u2014 3 \u043c\u0435\u0441.',cat:'\u041f\u043e\u0434\u043f\u0438\u0441\u043a\u0438',plat:'XBOX',type:'instant',price:1490,old:1790,rating:4.8,sales:560,stock:true,cover:'gift'},
+ {id:13,title:'Steam \u2014 \u043a\u043b\u044e\u0447 Cyberpunk 2077',cat:'\u041a\u043b\u044e\u0447\u0438 \u0438\u0433\u0440',plat:'STEAM',type:'instant',price:1290,old:1990,rating:4.9,sales:1420,stock:true,cover:'steam'},
+ {id:14,title:'PUBG Mobile \u2014 1800 UC',cat:'\u0418\u0433\u0440\u043e\u0432\u0430\u044f \u0432\u0430\u043b\u044e\u0442\u0430',plat:'PUBG MOBILE',type:'instant',price:2190,rating:4.8,sales:980,stock:true,cover:'pubg'},
+ {id:15,title:'Genshin Impact \u2014 6480 \u043a\u0440\u0438\u0441\u0442\u0430\u043b\u043b\u043e\u0432',cat:'\u041f\u043e\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f',plat:'GENSHIN',type:'auto',price:300,rating:4.9,sales:640,stock:true,cover:'genshin'},
+];
+const CATS = [
+ {nm:'\u041f\u043e\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f',ct:'22 \u0442\u043e\u0432\u0430\u0440\u0430',ic:'<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>'},
+ {nm:'\u0418\u0433\u0440\u043e\u0432\u0430\u044f \u0432\u0430\u043b\u044e\u0442\u0430',ct:'48 \u0442\u043e\u0432\u0430\u0440\u043e\u0432',ic:'<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10h3.5a1.5 1.5 0 010 3H9.5"/>'},
+ {nm:'\u041a\u043b\u044e\u0447\u0438 \u0438\u0433\u0440',ct:'126 \u0442\u043e\u0432\u0430\u0440\u043e\u0432',ic:'<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8 2 2-2 2 2 2-3 3-2-2"/>'},
+ {nm:'\u041f\u043e\u0434\u043f\u0438\u0441\u043a\u0438',ct:'37 \u0442\u043e\u0432\u0430\u0440\u043e\u0432',ic:'<path d="M4 7h16v12H4zM4 7l8 6 8-6"/>'},
+ {nm:'Gift-\u043a\u0430\u0440\u0442\u044b',ct:'54 \u0442\u043e\u0432\u0430\u0440\u0430',ic:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M12 6v13"/>'},
+ {nm:'\u0410\u043a\u043a\u0430\u0443\u043d\u0442\u044b',ct:'18 \u0442\u043e\u0432\u0430\u0440\u043e\u0432',ic:'<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/>'},
+];
+function stars(r){let f=Math.round(r);return '\u2605'.repeat(f)+'\u2606'.repeat(5-f);}
+function badgesHtml(p){let b='';if(p.type==='instant')b+='<span class="badge badge-instant">\u041c\u043e\u043c\u0435\u043d\u0442\u0430\u043b\u044c\u043d\u043e</span>';else b+='<span class="badge">'+TYPE_LABEL[p.type]+'</span>';if(p.old)b+='<span class="badge badge-sale">\u2212'+Math.round((1-p.price/p.old)*100)+'%</span>';if(p.stock)b+='<span class="badge badge-stock"><span class="dot"></span>\u0412 \u043d\u0430\u043b\u0438\u0447\u0438\u0438</span>';else b+='<span class="badge badge-out">\u041d\u0435\u0442 \u0432 \u043d\u0430\u043b\u0438\u0447\u0438\u0438</span>';return b;}
+function priceLabel(p){return (p.type==='auto'||p.type==='manual'?'<span class="tiny muted">\u043e\u0442 </span>':'')+money(p.price);}
+function card(p){
+ return '<div class="pcard'+(p.stock?'':' out')+'">'
+  +'<div class="cover" style="background:'+COVERS[p.cover]+'" onclick="openProduct('+p.id+')">'
+  +'<div class="topbadges">'+(p.hot?'<span class="badge badge-sale">\u0425\u0438\u0442</span>':(p.old?'<span class="badge badge-sale">\u0421\u043a\u0438\u0434\u043a\u0430</span>':'<span></span>'))+'<button class="fav" onclick="event.stopPropagation();toast(\'\u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u043e \u0432 \u0438\u0437\u0431\u0440\u0430\u043d\u043d\u043e\u0435\')"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 21C5 14 3 9 6 6c2-2 5-1 6 1 1-2 4-3 6-1 3 3 1 8-6 15z"/></svg></button></div>'
+  +'<div><div class="plat">'+p.plat+'</div><div class="ttl">'+p.title.split(' \u2014 ')[0]+'</div></div></div>'
+  +'<div class="body">'
+  +'<div class="nm" onclick="openProduct('+p.id+')">'+p.title+'</div>'
+  +'<div class="meta"><span class="star"><svg width="13" height="13" fill="#E8A33D" viewBox="0 0 24 24"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg>'+p.rating+'</span><span>'+p.sales.toLocaleString('ru-RU').replace(/,/g,' ')+' \u043f\u0440\u043e\u0434.</span></div>'
+  +'<div class="badges">'+badgesHtml(p)+'</div>'
+  +'<div class="foot"><div class="price">'+(p.old?'<span class="old">'+money(p.old)+'</span>':'')+'<span class="now">'+priceLabel(p)+'</span></div>'
+  +'<button class="add" onclick="addToCart('+p.id+')" aria-label="\u0412 \u043a\u043e\u0440\u0437\u0438\u043d\u0443"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>'
+  +'</div></div>';
+}
+function renderGrid(id,list){const el=document.getElementById(id);if(el)el.innerHTML=list.map(card).join('');}
+// home
+document.getElementById('homeCats').innerHTML=CATS.map(c=>'<div class="cat-tile" onclick="go(\'catalog\')"><div class="ico"><svg class="ic" viewBox="0 0 24 24">'+c.ic+'</svg></div><div class="nm">'+c.nm+'</div><div class="ct">'+c.ct+'</div></div>').join('');
+renderGrid('homePopular',PRODUCTS.slice(0,5));
+renderGrid('homeNew',PRODUCTS.slice(5,10));
+renderGrid('homeTopup',PRODUCTS.filter(p=>p.type==='auto'||p.type==='manual').slice(0,5));
+// catalog
+function renderCatalog(){renderGrid('catalogGrid',PRODUCTS);document.getElementById('catCount').textContent=PRODUCTS.length;document.getElementById('pager').innerHTML='<button>\u2039</button><button class="active">1</button><button>2</button><button>3</button><button>\u2026</button><button>8</button><button>\u203a</button>';}
+renderCatalog();
+// product detail
+function purchasePanel(p){
+ const base='<div class="pd-price-row">'+(p.old?'<span class="pd-old">'+money(p.old)+'</span>':'')+'<span class="pd-price">'+(p.type==='auto'||p.type==='manual'?'<span class="cur" style="font-size:18px;color:var(--muted)">\u043e\u0442 </span>':'')+money(p.price)+'</span></div>';
+ if(p.type==='instant'){return base
+  +'<div class="info-row"><svg class="ic" viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg><span class="k">\u0412\u044b\u0434\u0430\u0447\u0430</span><span class="v">\u041c\u0433\u043d\u043e\u0432\u0435\u043d\u043d\u043e \u043f\u043e\u0441\u043b\u0435 \u043e\u043f\u043b\u0430\u0442\u044b</span></div>'
+  +'<div class="info-row"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16v13H4zM4 7l8 6 8-6"/></svg><span class="k">\u0412 \u043d\u0430\u043b\u0438\u0447\u0438\u0438</span><span class="v">312 \u043a\u043b\u044e\u0447\u0435\u0439</span></div>'
+  +'<div class="row" style="gap:12px;margin:16px 0"><div class="qty"><button onclick="qd(-1)">\u2212</button><input id="pq" value="1" readonly><button onclick="qd(1)">+</button></div><button class="btn btn-secondary" style="flex:1" onclick="addToCart('+p.id+')">\u0412 \u043a\u043e\u0440\u0437\u0438\u043d\u0443</button></div>'
+  +'<button class="btn btn-primary btn-block btn-lg" data-route="checkout">\u041a\u0443\u043f\u0438\u0442\u044c \u0441\u0440\u0430\u0437\u0443</button>';
+ }
+ if(p.type==='auto'){return base
+  +'<label class="small" style="font-weight:600;display:block;margin-bottom:8px">\u0420\u0435\u0433\u0438\u043e\u043d \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430</label><div class="region-grid"><button class="active">\u0420\u043e\u0441\u0441\u0438\u044f</button><button>\u041a\u0430\u0437\u0430\u0445\u0441\u0442\u0430\u043d</button><button>\u0413\u043b\u043e\u0431\u0430\u043b</button></div>'
+  +'<div class="field" style="margin-top:10px"><label>\u0421\u0443\u043c\u043c\u0430 \u043f\u043e\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f, \u20bd</label><input class="input" id="topupAmt" value="1000" oninput="recalc()" inputmode="numeric"></div>'
+  +'<div class="calc-box"><div class="ln rate">\u041a\u0443\u0440\u0441: 1 \u20bd = 0,82 \u2022 \u043a\u043e\u043c\u0438\u0441\u0441\u0438\u044f \u0441\u0435\u0440\u0432\u0438\u0441\u0430 \u0432\u043a\u043b\u044e\u0447\u0435\u043d\u0430</div><div class="ln"><span class="muted">\u0417\u0430\u0447\u0438\u0441\u043b\u0438\u0442\u0441\u044f \u043d\u0430 \u0430\u043a\u043a\u0430\u0443\u043d\u0442</span><b id="credit">820 \u2022</b></div><div class="ln"><span class="muted">\u041a \u043e\u043f\u043b\u0430\u0442\u0435</span><b id="topupPay">1 000 \u20bd</b></div></div>'
+  +'<button class="btn btn-primary btn-block btn-lg" data-route="checkout">\u041f\u043e\u043f\u043e\u043b\u043d\u0438\u0442\u044c</button>';
+ }
+ if(p.type==='manual'){return base
+  +'<div class="info-row"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/></svg><span class="k">\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430</span><span class="v">\u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0432\u0440\u0443\u0447\u043d\u0443\u044e</span></div>'
+  +'<div class="field" style="margin-top:8px"><label>\u0421\u0443\u043c\u043c\u0430 \u043f\u043e\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f, \u20bd</label><input class="input" value="1500" inputmode="numeric"></div>'
+  +'<div class="calc-box" style="background:var(--amber-bg);border-color:#f2dcb5"><div class="ln"><svg class="ic ic-sm" viewBox="0 0 24 24" style="stroke:var(--amber)"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span class="small">\u0411\u0435\u0437 \u043a\u0443\u0440\u0441\u0430. \u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0441\u0432\u044f\u0436\u0435\u0442\u0441\u044f \u0438 \u0437\u0430\u0447\u0438\u0441\u043b\u0438\u0442 \u0441\u0440\u0435\u0434\u0441\u0442\u0432\u0430 \u0432 \u0442\u0435\u0447\u0435\u043d\u0438\u0435 1\u20133 \u0447\u0430\u0441\u043e\u0432</span></div></div>'
+  +'<button class="btn btn-primary btn-block btn-lg" data-route="checkout">\u041e\u0444\u043e\u0440\u043c\u0438\u0442\u044c \u0437\u0430\u044f\u0432\u043a\u0443</button>';
+ }
+ // handmade
+ return base
+  +'<div class="info-row"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="k">\u0421\u0440\u043e\u043a \u0432\u044b\u0434\u0430\u0447\u0438</span><span class="v">\u0434\u043e 24 \u0447\u0430\u0441\u043e\u0432</span></div>'
+  +'<div class="info-row"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/></svg><span class="k">\u0412\u044b\u0434\u0430\u0447\u0430</span><span class="v">\u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0432\u0440\u0443\u0447\u043d\u0443\u044e</span></div>'
+  +'<div class="calc-box"><div class="ln"><span class="muted small">\u0424\u0438\u043a\u0441\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u0430\u044f \u0446\u0435\u043d\u0430. \u041f\u043e\u0441\u043b\u0435 \u043e\u043f\u043b\u0430\u0442\u044b \u0437\u0430\u043a\u0430\u0437 \u0443\u0439\u0434\u0451\u0442 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u0443.</span></div></div>'
+  +'<button class="btn btn-primary btn-block btn-lg" data-route="checkout">\u041a\u0443\u043f\u0438\u0442\u044c</button>';
+}
+function openProduct(id){
+ const p=PRODUCTS.find(x=>x.id===id);if(!p)return;
+ document.getElementById('prodCrumb').innerHTML='<a data-route="home">\u0413\u043b\u0430\u0432\u043d\u0430\u044f</a><span class="sep">/</span><a data-route="catalog">\u041a\u0430\u0442\u0430\u043b\u043e\u0433</a><span class="sep">/</span><a data-route="catalog">'+p.cat+'</a><span class="sep">/</span><span style="color:var(--ink)">'+p.title+'</span>';
+ const html='<div class="pd-grid"><div class="pd-gallery">'
+  +'<div class="cover" style="background:'+COVERS[p.cover]+'"><div style="position:relative;z-index:2"><div style="color:rgba(255,255,255,.8);font-size:12px;font-weight:700;letter-spacing:.05em">'+p.plat+'</div><div class="ttl">'+p.title.split(' \u2014 ')[0]+'</div></div></div>'
+  +'<div class="pd-thumbs"><div style="background:'+COVERS[p.cover]+'"></div><div style="background:'+COVERS[p.cover]+';opacity:.7"></div><div style="background:'+COVERS[p.cover]+';opacity:.5"></div></div></div>'
+  +'<div class="pd-info"><div class="badges" style="margin-bottom:10px">'+badgesHtml(p)+'</div><h1>'+p.title+'</h1>'
+  +'<div class="pd-rating"><span class="stars">'+stars(p.rating)+'</span><b style="color:var(--ink)">'+p.rating+'</b><span>\u00b7 '+p.sales.toLocaleString('ru-RU').replace(/,/g,' ')+' \u043f\u0440\u043e\u0434\u0430\u0436</span><span>\u00b7 217 \u043e\u0442\u0437\u044b\u0432\u043e\u0432</span></div>'
+  +'<div class="pd-panel">'+purchasePanel(p)+'</div>'
+  +'<div class="trust"><div class="t"><svg class="ic" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>\u0413\u0430\u0440\u0430\u043d\u0442\u0438\u044f \u0432\u043e\u0437\u0432\u0440\u0430\u0442\u0430</div><div class="t"><svg class="ic" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>\u041f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u0430 24/7</div><div class="t"><svg class="ic" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>\u0411\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u0430\u044f \u043e\u043f\u043b\u0430\u0442\u0430</div></div></div></div>'
+  +'<div class="tabs"><button class="active" onclick="ptab(this,0)">\u041e\u043f\u0438\u0441\u0430\u043d\u0438\u0435</button><button onclick="ptab(this,1)">\u041a\u0430\u043a \u043f\u0440\u043e\u0438\u0441\u0445\u043e\u0434\u0438\u0442 \u0432\u044b\u0434\u0430\u0447\u0430</button><button onclick="ptab(this,2)">\u041e\u0442\u0437\u044b\u0432\u044b (217)</button></div>'
+  +'<div class="tabpane active"><div class="desc-body"><p>'+p.title+' \u2014 \u0431\u044b\u0441\u0442\u0440\u0430\u044f \u0438 \u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u0430\u044f \u043f\u043e\u043a\u0443\u043f\u043a\u0430 \u0431\u0435\u0437 \u043f\u0435\u0440\u0435\u043f\u043b\u0430\u0442. \u0420\u0430\u0431\u043e\u0442\u0430\u0435\u043c \u0441 2021 \u0433\u043e\u0434\u0430, \u0431\u043e\u043b\u0435\u0435 180 000 \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u043d\u044b\u0445 \u0437\u0430\u043a\u0430\u0437\u043e\u0432.</p><h4>\u041e\u0441\u043e\u0431\u0435\u043d\u043d\u043e\u0441\u0442\u0438</h4><ul><li>\u041e\u0444\u0438\u0446\u0438\u0430\u043b\u044c\u043d\u044b\u0435 \u043a\u043b\u044e\u0447\u0438 \u0438 \u043a\u043e\u0434\u044b \u0430\u043a\u0442\u0438\u0432\u0430\u0446\u0438\u0438</li><li>\u0427\u0435\u0441\u0442\u043d\u044b\u0439 \u043a\u0443\u0440\u0441 \u0438 \u043f\u0440\u043e\u0437\u0440\u0430\u0447\u043d\u044b\u0439 \u0440\u0430\u0441\u0447\u0451\u0442</li><li>\u0427\u0435\u043a \u0438 \u043a\u043b\u044e\u0447\u0438 \u043f\u0440\u0438\u0445\u043e\u0434\u044f\u0442 \u043d\u0430 \u043f\u043e\u0447\u0442\u0443</li></ul></div></div>'
+  +'<div class="tabpane"><div class="desc-body"><ol style="padding-left:18px;line-height:2"><li>\u0414\u043e\u0431\u0430\u0432\u044c\u0442\u0435 \u0442\u043e\u0432\u0430\u0440 \u0432 \u043a\u043e\u0440\u0437\u0438\u043d\u0443 \u0438 \u043e\u043f\u043b\u0430\u0442\u0438\u0442\u0435 \u0443\u0434\u043e\u0431\u043d\u044b\u043c \u0441\u043f\u043e\u0441\u043e\u0431\u043e\u043c</li><li>'+(p.type==='instant'?'\u041a\u043b\u044e\u0447 \u043f\u043e\u044f\u0432\u0438\u0442\u0441\u044f \u043d\u0430 \u044d\u043a\u0440\u0430\u043d\u0435 \u0443\u0441\u043f\u0435\u0445\u0430 \u0441\u0440\u0430\u0437\u0443':'\u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442 \u0437\u0430\u043a\u0430\u0437 \u0438 \u0437\u0430\u0447\u0438\u0441\u043b\u0438\u0442 \u0441\u0440\u0435\u0434\u0441\u0442\u0432\u0430')+'</li><li>\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0438 \u043a\u043b\u044e\u0447\u0438 \u0432\u0441\u0435\u0433\u0434\u0430 \u0432 \u00ab\u041c\u043e\u0438 \u0437\u0430\u043a\u0430\u0437\u044b\u00bb</li></ol></div></div>'
+  +'<div class="tabpane">'
+   +'<div class="review"><div class="av">\u0410</div><div><div class="spread"><b>\u0410\u043b\u0435\u043a\u0441\u0435\u0439</b><span class="stars">'+stars(5)+'</span></div><p class="small muted" style="margin-top:4px">\u0412\u0441\u0451 \u043f\u0440\u0438\u0448\u043b\u043e \u043c\u0433\u043d\u043e\u0432\u0435\u043d\u043d\u043e, \u043a\u043b\u044e\u0447 \u0440\u0430\u0431\u043e\u0447\u0438\u0439. \u0411\u0435\u0440\u0443 \u043d\u0435 \u043f\u0435\u0440\u0432\u044b\u0439 \u0440\u0430\u0437.</p></div></div>'
+   +'<div class="review"><div class="av">\u041c</div><div><div class="spread"><b>\u041c\u0430\u0440\u0438\u044f</b><span class="stars">'+stars(4)+'</span></div><p class="small muted" style="margin-top:4px">\u041d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u044b\u0439 \u043a\u0443\u0440\u0441, \u0431\u044b\u0441\u0442\u0440\u043e \u043e\u0442\u0432\u0435\u0442\u0438\u043b\u0430 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u0430.</p></div></div>'
+  +'</div>';
+ document.getElementById('productBody').innerHTML=html;
+ renderGrid('prodSimilar',PRODUCTS.filter(x=>x.cat===p.cat&&x.id!==p.id).concat(PRODUCTS.filter(x=>x.cat!==p.cat)).slice(0,5));
+ go('product');bindRoutes();
+}
+function qd(d){const i=document.getElementById('pq');i.value=Math.max(1,(+i.value)+d);}
+function recalc(){const a=+(document.getElementById('topupAmt').value||0);document.getElementById('credit').textContent=Math.round(a*0.82).toLocaleString('ru-RU').replace(/,/g,' ')+' \u2022';document.getElementById('topupPay').textContent=money(a);}
+function ptab(btn,i){document.querySelectorAll('#view-product .tabs button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('#view-product .tabpane').forEach((p,j)=>p.classList.toggle('active',j===i));}
+// router
+function go(name){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));const el=document.getElementById('view-'+name);if(el){el.classList.add('active');window.scrollTo({top:0,behavior:'smooth'});}closeDrawer();}
+function bindRoutes(){document.querySelectorAll('[data-route]').forEach(el=>{if(el._b)return;el._b=1;el.addEventListener('click',e=>{e.preventDefault();go(el.getAttribute('data-route'));});});}
+bindRoutes();
+// profile tabs
+document.querySelectorAll('.side-menu [data-ptab]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();document.querySelectorAll('.side-menu [data-ptab]').forEach(x=>x.classList.remove('active'));a.classList.add('active');document.querySelectorAll('.ppane').forEach(p=>p.classList.remove('active'));document.getElementById('ptab-'+a.dataset.ptab).classList.add('active');}));
+function openTopup(){document.querySelector('[data-ptab="balance"]').click();window.scrollTo({top:300,behavior:'smooth'});}
+// admin tabs
+document.querySelectorAll('.admin-side [data-atab]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();document.querySelectorAll('.admin-side [data-atab]').forEach(x=>x.classList.remove('active'));a.classList.add('active');document.querySelectorAll('.apane').forEach(p=>p.classList.remove('active'));document.getElementById('atab-'+a.dataset.atab).classList.add('active');}));
+// chips toggle (generic)
+document.addEventListener('click',e=>{const c=e.target.closest('.chip');if(c&&c.parentElement){c.parentElement.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));c.classList.add('active');}});
+// cart
+let cartN=2;
+function addToCart(id){cartN++;document.getElementById('cartCount').textContent=cartN;const p=PRODUCTS.find(x=>x.id===id);toast((p?p.title:'\u0422\u043e\u0432\u0430\u0440')+' \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d \u0432 \u043a\u043e\u0440\u0437\u0438\u043d\u0443','ok');}
+// toast
+function toast(msg,type){const w=document.getElementById('toasts');const t=document.createElement('div');t.className='toast '+(type||'');const ic=type==='err'?'<path d="M12 8v5M12 16h.01"/><circle cx="12" cy="12" r="9"/>':'<path d="M5 13l4 4L19 7"/>';t.innerHTML='<svg class="ic ti" viewBox="0 0 24 24">'+ic+'</svg><div class="tx">'+msg+'</div><button class="x" onclick="this.parentElement.remove()"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';w.appendChild(t);setTimeout(()=>t.remove(),3500);}
+// modal / drawer
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function openKeyModal(){openModal('modalKey');}
+document.querySelectorAll('.modal-back').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function closeDrawer(){document.getElementById('drawer').classList.remove('open');}
+document.getElementById('burger').addEventListener('click',()=>document.getElementById('drawer').classList.add('open'));
+document.getElementById('filterToggle').addEventListener('click',()=>{const f=document.getElementById('filterPanel');f.style.display=f.style.display==='block'?'none':'block';});
+// auth
+document.getElementById('authSend').addEventListener('click',()=>{const em=document.getElementById('authEmail').value||'you@example.com';document.getElementById('sentTo').textContent=em;document.getElementById('authStep1').classList.add('hidden');document.getElementById('authStep2').classList.remove('hidden');});
+document.getElementById('authBack').addEventListener('click',()=>{document.getElementById('authStep2').classList.add('hidden');document.getElementById('authStep1').classList.remove('hidden');});
+// pay btn loading -> success
+document.getElementById('payBtn').addEventListener('click',function(){this.classList.add('loading');setTimeout(()=>{this.classList.remove('loading');go('success');toast('\u041e\u043f\u043b\u0430\u0442\u0430 \u043f\u0440\u043e\u0448\u043b\u0430 \u0443\u0441\u043f\u0435\u0448\u043d\u043e','ok');},1100);});
+document.getElementById('copyKey').addEventListener('click',()=>toast('\u041a\u043b\u044e\u0447 \u0441\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d \u0432 \u0431\u0443\u0444\u0435\u0440','ok'));
+// boot
+window.addEventListener('load',()=>setTimeout(()=>document.getElementById('boot').classList.add('done'),500));
+</script>
+</body>
+</html>

@@ -1,0 +1,400 @@
+-- Схема БД для NiceTry (Supabase PostgreSQL)
+-- Этап 2: Бэкенд-каркас и авторизация
+
+-- ============================================
+-- 1. ПОЛЬЗОВАТЕЛИ
+-- ============================================
+
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  telegram_id BIGINT UNIQUE,
+  telegram_username TEXT,
+  balance DECIMAL(10, 2) DEFAULT 0 CHECK (balance >= 0),
+  status_id UUID REFERENCES user_statuses(id),
+  referral_code TEXT UNIQUE NOT NULL,
+  referred_by UUID REFERENCES users(id),
+  is_admin BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_telegram_id ON users(telegram_id);
+CREATE INDEX idx_users_referral_code ON users(referral_code);
+
+-- ============================================
+-- 2. СТАТУСЫ ПОЛЬЗОВАТЕЛЕЙ
+-- ============================================
+
+CREATE TABLE user_statuses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT UNIQUE NOT NULL,
+  discount_percent DECIMAL(5, 2) DEFAULT 0 CHECK (discount_percent >= 0 AND discount_percent <= 100),
+  min_spent DECIMAL(10, 2) DEFAULT 0,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Стартовые статусы
+INSERT INTO user_statuses (name, discount_percent, min_spent, sort_order) VALUES
+  ('Bronze', 0, 0, 1),
+  ('Silver', 5, 5000, 2),
+  ('Gold', 8, 10000, 3);
+
+-- ============================================
+-- 3. КАТЕГОРИИ
+-- ============================================
+
+CREATE TABLE categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  icon TEXT,
+  markup_percent DECIMAL(5, 2) DEFAULT 14 CHECK (markup_percent >= 0),
+  usd_to_rub_rate DECIMAL(8, 2) DEFAULT 80,
+  supplier TEXT CHECK (supplier IN ('approute', 'dessly')),
+  is_active BOOLEAN DEFAULT TRUE,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_categories_slug ON categories(slug);
+CREATE INDEX idx_categories_active ON categories(is_active);
+
+-- ============================================
+-- 4. ТОВАРЫ
+-- ============================================
+
+CREATE TABLE products (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  type TEXT NOT NULL CHECK (type IN ('instant', 'topup_auto', 'topup_manual', 'manual')),
+  category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+  price DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
+  original_price DECIMAL(10, 2),
+  stock INTEGER,
+  is_active BOOLEAN DEFAULT TRUE,
+  supplier TEXT CHECK (supplier IN ('approute', 'dessly')),
+  supplier_service_id TEXT,
+  denomination_id TEXT,
+  supplier_fields JSONB,
+  min_amount DECIMAL(10, 2),
+  max_amount DECIMAL(10, 2),
+  image_url TEXT,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_products_category ON products(category_id);
+CREATE INDEX idx_products_type ON products(type);
+CREATE INDEX idx_products_active ON products(is_active);
+CREATE INDEX idx_products_supplier ON products(supplier, supplier_service_id);
+
+-- ============================================
+-- 5. ФАЙЛОВЫЕ ТОВАРЫ (для моментальной выдачи)
+-- ============================================
+
+CREATE TABLE product_keys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+  key_value TEXT NOT NULL,
+  is_used BOOLEAN DEFAULT FALSE,
+  used_at TIMESTAMPTZ,
+  used_by UUID REFERENCES users(id),
+  order_id UUID,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_product_keys_product ON product_keys(product_id);
+CREATE INDEX idx_product_keys_available ON product_keys(product_id, is_used) WHERE is_used = FALSE;
+
+-- ============================================
+-- 6. ЗАКАЗЫ
+-- ============================================
+
+CREATE TABLE orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_number TEXT UNIQUE NOT NULL,
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  total_amount DECIMAL(10, 2) NOT NULL,
+  discount_amount DECIMAL(10, 2) DEFAULT 0,
+  final_amount DECIMAL(10, 2) NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('new', 'paid', 'delivered', 'cancelled')),
+  payment_method TEXT CHECK (payment_method IN ('balance', 'card', 'crypto')),
+  promo_code_id UUID REFERENCES promo_codes(id),
+  delivery_data JSONB,
+  supplier_order_id TEXT,
+  supplier_reference_id TEXT UNIQUE,
+  supplier_trace_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_orders_user ON orders(user_id);
+CREATE INDEX idx_orders_status ON orders(status);
+CREATE INDEX idx_orders_number ON orders(order_number);
+CREATE INDEX idx_orders_supplier_ref ON orders(supplier_reference_id);
+
+-- ============================================
+-- 7. ПОЗИЦИИ ЗАКАЗА
+-- ============================================
+
+CREATE TABLE order_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+  product_name TEXT NOT NULL,
+  quantity INTEGER DEFAULT 1 CHECK (quantity > 0),
+  price DECIMAL(10, 2) NOT NULL,
+  voucher_code TEXT,
+  delivery_status TEXT CHECK (delivery_status IN ('pending', 'delivered', 'failed')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_order_items_order ON order_items(order_id);
+
+-- ============================================
+-- 8. ПРОМОКОДЫ
+-- ============================================
+
+CREATE TABLE promo_codes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT UNIQUE NOT NULL,
+  discount_type TEXT NOT NULL CHECK (discount_type IN ('percent', 'fixed')),
+  discount_value DECIMAL(10, 2) NOT NULL CHECK (discount_value > 0),
+  max_uses INTEGER,
+  used_count INTEGER DEFAULT 0,
+  expires_at TIMESTAMPTZ,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_promo_codes_code ON promo_codes(code);
+CREATE INDEX idx_promo_codes_active ON promo_codes(is_active);
+
+-- ============================================
+-- 9. ТРАНЗАКЦИИ БАЛАНСА
+-- ============================================
+
+CREATE TABLE balance_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  amount DECIMAL(10, 2) NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('topup', 'purchase', 'refund', 'referral', 'admin')),
+  description TEXT,
+  order_id UUID REFERENCES orders(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_balance_transactions_user ON balance_transactions(user_id);
+CREATE INDEX idx_balance_transactions_type ON balance_transactions(type);
+
+-- ============================================
+-- 10. РЕФЕРАЛЬНАЯ ПРОГРАММА
+-- ============================================
+
+CREATE TABLE referral_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_type TEXT UNIQUE NOT NULL CHECK (product_type IN ('instant', 'topup_auto', 'topup_manual', 'manual')),
+  percent DECIMAL(5, 2) DEFAULT 12 CHECK (percent >= 0 AND percent <= 100),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Стартовые значения
+INSERT INTO referral_settings (product_type, percent) VALUES
+  ('instant', 12),
+  ('topup_auto', 15),
+  ('topup_manual', 10),
+  ('manual', 10);
+
+CREATE TABLE referral_earnings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  referrer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  referred_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+  amount DECIMAL(10, 2) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_referral_earnings_referrer ON referral_earnings(referrer_id);
+
+-- ============================================
+-- 11. БАННЕРЫ
+-- ============================================
+
+CREATE TABLE banners (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  image_url TEXT NOT NULL,
+  link_url TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_banners_active ON banners(is_active, sort_order);
+
+-- ============================================
+-- 12. UTM-МЕТКИ
+-- ============================================
+
+CREATE TABLE utm_campaigns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  utm_source TEXT NOT NULL,
+  utm_medium TEXT,
+  utm_campaign TEXT,
+  site_link TEXT NOT NULL,
+  bot_link TEXT NOT NULL,
+  clicks_count INTEGER DEFAULT 0,
+  registrations_count INTEGER DEFAULT 0,
+  revenue DECIMAL(10, 2) DEFAULT 0,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE utm_clicks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id UUID REFERENCES utm_campaigns(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id),
+  ip_address INET,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_utm_clicks_campaign ON utm_clicks(campaign_id);
+
+-- ============================================
+-- 13. РАССЫЛКИ
+-- ============================================
+
+CREATE TABLE mailings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  image_url TEXT,
+  button_text TEXT,
+  button_url TEXT,
+  segment TEXT CHECK (segment IN ('all', 'with_orders', 'without_orders', 'by_status', 'by_utm')),
+  segment_filter JSONB,
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'sending', 'completed')),
+  scheduled_at TIMESTAMPTZ,
+  sent_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- 14. ОТЗЫВЫ
+-- ============================================
+
+CREATE TABLE reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+  rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+  comment TEXT,
+  is_published BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_reviews_order ON reviews(order_id);
+CREATE INDEX idx_reviews_published ON reviews(is_published);
+
+-- ============================================
+-- ФУНКЦИИ И ТРИГГЕРЫ
+-- ============================================
+
+-- Автообновление updated_at
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER users_updated_at BEFORE UPDATE ON users
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER categories_updated_at BEFORE UPDATE ON categories
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER products_updated_at BEFORE UPDATE ON products
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER orders_updated_at BEFORE UPDATE ON orders
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Генерация номера заказа
+CREATE OR REPLACE FUNCTION generate_order_number()
+RETURNS TEXT AS $$
+BEGIN
+  RETURN 'NT-' || LPAD(FLOOR(RANDOM() * 999999)::TEXT, 6, '0');
+END;
+$$ LANGUAGE plpgsql;
+
+-- Генерация реферального кода
+CREATE OR REPLACE FUNCTION generate_referral_code()
+RETURNS TEXT AS $$
+DECLARE
+  code TEXT;
+BEGIN
+  code := UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 8));
+  RETURN code;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================
+-- RLS (Row Level Security)
+-- ============================================
+
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE balance_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE referral_earnings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+
+-- Пользователи видят только свои данные
+CREATE POLICY users_select_own ON users
+  FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY users_update_own ON users
+  FOR UPDATE USING (auth.uid() = id);
+
+-- Заказы: пользователи видят только свои
+CREATE POLICY orders_select_own ON orders
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY order_items_select_own ON order_items
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM orders WHERE orders.id = order_items.order_id AND orders.user_id = auth.uid())
+  );
+
+-- Транзакции баланса: только свои
+CREATE POLICY balance_transactions_select_own ON balance_transactions
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- Реферальные начисления: только свои
+CREATE POLICY referral_earnings_select_own ON referral_earnings
+  FOR SELECT USING (auth.uid() = referrer_id);
+
+-- Отзывы: пользователи видят опубликованные + свои
+CREATE POLICY reviews_select_published ON reviews
+  FOR SELECT USING (is_published = TRUE OR auth.uid() = user_id);
+
+-- ============================================
+-- КОММЕНТАРИИ
+-- ============================================
+
+COMMENT ON TABLE users IS 'Пользователи магазина';
+COMMENT ON TABLE products IS 'Каталог товаров (4 типа: instant, topup_auto, topup_manual, manual)';
+COMMENT ON TABLE orders IS 'Заказы пользователей';
+COMMENT ON TABLE promo_codes IS 'Промокоды (процент или фикс)';
+COMMENT ON TABLE balance_transactions IS 'История операций с балансом';
+COMMENT ON TABLE referral_settings IS 'Настройки реферальной программы по типам товаров';

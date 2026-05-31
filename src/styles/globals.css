@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply text-[15px] leading-relaxed;
+  }
+
+  h1, h2, h3, h4 {
+    @apply text-navy font-bold leading-tight;
+  }
+
+  h1 {
+    @apply text-[30px] tracking-tight;
+  }
+
+  h2 {
+    @apply text-[22px] tracking-tight;
+  }
+
+  h3 {
+    @apply text-[17px];
+  }
+
+  h4 {
+    @apply text-[15px];
+  }
+}
+
+@layer components {
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 border border-transparent rounded px-4 h-[42px] text-sm font-semibold bg-surface text-ink transition-all duration-150 whitespace-nowrap;
+  }
+
+  .btn:hover {
+    @apply bg-[#f7f9fb];
+  }
+
+  .btn-primary {
+    @apply bg-blue text-white shadow-[0_2px_8px_rgba(28,140,227,.28)];
+  }
+
+  .btn-primary:hover {
+    @apply bg-blue-600;
+  }
+
+  .btn-primary:active {
+    @apply bg-blue-700;
+  }
+
+  .btn-secondary {
+    @apply bg-blue-50 text-blue-700 border-blue-100;
+  }
+
+  .btn-secondary:hover {
+    @apply bg-blue-100;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-muted border-border;
+  }
+
+  .btn-ghost:hover {
+    @apply bg-[#f3f6f9] text-ink;
+  }
+
+  .btn-lg {
+    @apply h-[50px] text-[15px] px-6;
+  }
+
+  .btn-sm {
+    @apply h-[34px] text-[13px] px-3 rounded-sm;
+  }
+
+  .btn:disabled {
+    @apply opacity-55 cursor-not-allowed shadow-none;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-surface border border-border rounded-lg shadow-sm;
+  }
+
+  .card-pad {
+    @apply p-[18px];
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center gap-1.5 h-[22px] px-2 rounded-md text-[11.5px] font-semibold tracking-wide bg-gray-bg text-muted;
+  }
+
+  .badge-instant {
+    @apply bg-blue-50 text-blue-700;
+  }
+
+  .badge-stock {
+    @apply bg-green-bg text-green;
+  }
+
+  .badge-out {
+    @apply bg-gray-bg text-gray;
+  }
+
+  .badge-sale {
+    @apply bg-red-bg text-red;
+  }
+
+  .badge-amber {
+    @apply bg-amber-bg text-amber;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full h-11 border border-border rounded bg-white px-3 text-ink transition-all outline-none;
+  }
+
+  .input:focus {
+    @apply border-blue shadow-[0_0_0_3px_rgba(28,140,227,.15)];
+  }
+
+  .input::placeholder {
+    @apply text-muted-2;
+  }
+
+  .input.err {
+    @apply border-red shadow-[0_0_0_3px_rgba(214,59,59,.12)];
+  }
+}
+
+@layer utilities {
+  .container {
+    @apply max-w-container mx-auto px-5;
+  }
+}
