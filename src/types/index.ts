@@ -28,6 +28,10 @@ export interface Product {
   description: string
   type: ProductType
   category_id: string
+  category?: {
+    name: string
+    slug: string
+  }
   price: number
   original_price?: number
   stock?: number
