@@ -158,6 +158,45 @@ function maskVoucher(code: string): string {
   return '****' + code.slice(-4)
 }
 
+/**
+ * Симуляция ошибок поставщика для тестов и отладки UI.
+ * Если denominationId имеет вид `force_<CODE>` (например `force_OUT_OF_STOCK`), мок возвращает
+ * envelope с соответствующим statusCode — клиент (unwrap) бросит AppRouteError, что позволяет
+ * проверить обработку всех кодов ошибок из ТЗ §5.4 (OUT_OF_STOCK, INSUFFICIENT_FUNDS,
+ * VALIDATION_ERROR, UPSTREAM_ERROR, LIMIT_REACHED/429 и т.д.). Реальные id (`den_steam_10`)
+ * этим путём не затрагиваются.
+ */
+const FORCE_PREFIX = 'force_'
+const FORCE_CODES: Record<string, AppRouteStatusCode> = {
+  OUT_OF_STOCK: AppRouteStatusCode.OUT_OF_STOCK,
+  INSUFFICIENT_FUNDS: AppRouteStatusCode.INSUFFICIENT_FUNDS,
+  VALIDATION_ERROR: AppRouteStatusCode.VALIDATION_ERROR,
+  UPSTREAM_ERROR: AppRouteStatusCode.UPSTREAM_ERROR,
+  LIMIT_REACHED: AppRouteStatusCode.LIMIT_REACHED,
+  UNAUTHORIZED: AppRouteStatusCode.UNAUTHORIZED,
+  FORBIDDEN: AppRouteStatusCode.FORBIDDEN,
+  NOT_FOUND: AppRouteStatusCode.NOT_FOUND,
+  CONFLICT: AppRouteStatusCode.CONFLICT,
+  INTERNAL_ERROR: AppRouteStatusCode.INTERNAL_ERROR,
+}
+
+function forcedErrorEnvelope(
+  denominationId: string
+): AppRouteEnvelope<AppRouteCreateOrderData | AppRouteDtuCheckData> | null {
+  if (!denominationId.startsWith(FORCE_PREFIX)) return null
+  const codeName = denominationId.slice(FORCE_PREFIX.length).toUpperCase()
+  const statusCode = FORCE_CODES[codeName]
+  if (statusCode === undefined) return null
+  return {
+    status: 'ERROR',
+    statusCode,
+    statusMessage: codeName.replace(/_/g, ' '),
+    traceId: nextTraceId(),
+    data: null,
+    errors: [{ field: 'denominationId', code: codeName, message: `Simulated ${codeName}` }],
+  }
+}
+
 export function mockCreateOrder(
   req: AppRouteCreateOrderRequest
 ): AppRouteEnvelope<AppRouteCreateOrderData | AppRouteDtuCheckData> {
@@ -172,6 +211,10 @@ export function mockCreateOrder(
       errors: [{ field: 'orders[0].denominationId', code: 'REQUIRED', message: 'denominationId is required' }],
     }
   }
+
+  // Симуляция ошибок поставщика (force_<CODE>) — см. forcedErrorEnvelope.
+  const forced = forcedErrorEnvelope(item.denominationId)
+  if (forced) return forced
 
   // DTU pre-check (checkOnly=true)
   if (req.ordersType === 'dtu' && req.checkOnly) {

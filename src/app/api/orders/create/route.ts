@@ -11,7 +11,16 @@ import {
 } from '@/lib/approute'
 import { sendGift, DesslyError } from '@/lib/dessly'
 import { REFERRAL_PERCENTS } from '@/lib/constants'
-import type { Product, ProductType } from '@/types'
+import {
+  computeLinePrice,
+  normalizeQuantity,
+  statusDiscount,
+  promoDiscount,
+  settleAmounts,
+  isPromoApplicable,
+  computeReferralBonus,
+} from '@/lib/order-math'
+import type { Product } from '@/types'
 
 /**
  * POST /api/orders/create
@@ -30,8 +39,6 @@ interface IncomingItem {
   custom_amount?: number
   form_data?: Record<string, string>
 }
-
-const TOPUP_TYPES: ProductType[] = ['topup_auto', 'topup_manual']
 
 export async function POST(request: NextRequest) {
   try {
@@ -102,37 +109,23 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const qty = Math.floor(Number(item.quantity) || 1)
-      if (qty < 1 || qty > 100) {
+      const qty = normalizeQuantity(item.quantity)
+      if (!qty.ok) {
         return NextResponse.json({ error: 'Некорректное количество' }, { status: 400 })
       }
 
-      let linePrice: number
-      if (TOPUP_TYPES.includes(product.type)) {
-        const amount = Number(item.custom_amount)
-        if (!Number.isFinite(amount) || amount <= 0) {
-          return NextResponse.json({ error: 'Укажите сумму пополнения' }, { status: 400 })
-        }
-        const min = product.min_amount ?? 0
-        const max = product.max_amount ?? Number.MAX_SAFE_INTEGER
-        if (amount < min || amount > max) {
-          return NextResponse.json(
-            { error: `Сумма должна быть от ${min} до ${max} ₽` },
-            { status: 400 }
-          )
-        }
-        linePrice = Math.round(amount)
-      } else {
-        linePrice = Math.round(Number(product.price) * qty)
+      const priced = computeLinePrice(product, qty.quantity, Number(item.custom_amount))
+      if (!priced.ok) {
+        return NextResponse.json({ error: priced.error }, { status: 400 })
       }
-      lines.push({ product, quantity: qty, linePrice, formData: item.form_data })
+      lines.push({ product, quantity: qty.quantity, linePrice: priced.linePrice, formData: item.form_data })
     }
 
     const totalAmount = lines.reduce((s, l) => s + l.linePrice, 0)
 
     // 2) Скидка статуса + промокод (валидация на сервере).
     const statusDiscountPercent = Number(profile.status?.discount_percent || 0)
-    let discountAmount = Math.round((totalAmount * statusDiscountPercent) / 100)
+    let discountAmount = statusDiscount(totalAmount, statusDiscountPercent)
 
     let promoCodeId: string | null = null
     if (body.promo_code) {
@@ -142,21 +135,18 @@ export async function POST(request: NextRequest) {
         .eq('code', String(body.promo_code).toUpperCase())
         .eq('is_active', true)
         .maybeSingle()
-      const valid =
-        promo &&
-        (!promo.expires_at || new Date(promo.expires_at) >= new Date()) &&
-        (!promo.max_uses || promo.used_count < promo.max_uses)
-      if (valid) {
+      if (isPromoApplicable(promo, new Date())) {
         promoCodeId = promo.id
-        const promoDiscount =
-          promo.discount_type === 'percent'
-            ? Math.round((totalAmount * Number(promo.discount_value)) / 100)
-            : Math.round(Number(promo.discount_value))
-        discountAmount += promoDiscount
+        discountAmount += promoDiscount(
+          totalAmount,
+          promo.discount_type,
+          Number(promo.discount_value)
+        )
       }
     }
-    discountAmount = Math.min(discountAmount, totalAmount)
-    const finalAmount = Math.max(0, totalAmount - discountAmount)
+    const settled = settleAmounts(totalAmount, discountAmount)
+    discountAmount = settled.discount
+    const finalAmount = settled.final
 
     // 3) Проверка баланса (оплата с баланса).
     if (Number(profile.balance) < finalAmount) {
@@ -164,8 +154,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 4) Создание заказа.
-    const orderNumber = `NT-${Date.now().toString(36).toUpperCase()}`
     const referenceId = randomUUID() // идемпотентность для AppRoute
+    // order_number включает фрагмент uuid, иначе при двойном клике в одну миллисекунду
+    // два заказа получат одинаковый Date.now()-номер и второй упадёт на UNIQUE-ограничении.
+    const orderNumber = `NT-${Date.now().toString(36).toUpperCase()}-${referenceId.slice(0, 4).toUpperCase()}`
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert({
@@ -187,15 +179,27 @@ export async function POST(request: NextRequest) {
     }
 
     // 5) Списание баланса + транзакция (до выдачи, чтобы не выдать без оплаты).
-    const { error: balErr } = await supabaseAdmin
+    // CAS (compare-and-swap): обновляем баланс ТОЛЬКО если он не изменился с момента чтения
+    // (.eq('balance', profile.balance)). Это исключает «потерянное обновление» при гонке двух
+    // параллельных заказов: иначе оба прочли бы 100, оба записали бы абсолютное 50 — и пользователь
+    // получил бы два товара, заплатив за один. Дополнительно .gte защищает от ухода в минус.
+    const { data: debited, error: balErr } = await supabaseAdmin
       .from('users')
       .update({ balance: Number(profile.balance) - finalAmount })
       .eq('id', authUser.id)
-      .gte('balance', finalAmount) // защита от гонки/двойного списания
-    if (balErr) {
-      console.error('[orders] balance debit failed:', balErr)
+      .eq('balance', profile.balance)
+      .gte('balance', finalAmount)
+      .select('id')
+      .maybeSingle()
+    if (balErr || !debited) {
+      // Баланс изменился между чтением и записью (гонка) или ошибка — заказ отменяем,
+      // средства не списаны, товар не выдан.
+      console.error('[orders] balance debit failed (race/insufficient):', balErr)
       await supabaseAdmin.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
-      return NextResponse.json({ error: 'Ошибка списания средств' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Не удалось списать средства, повторите попытку' },
+        { status: 409 }
+      )
     }
     await supabaseAdmin.from('balance_transactions').insert({
       user_id: authUser.id,
@@ -342,17 +346,19 @@ async function creditReferral(
   orderNumber: string,
   lines: Array<{ product: Product; linePrice: number }>
 ) {
+  // Защита от самореферала: нельзя начислить бонус самому себе.
+  if (!referrerId || referrerId === referredUserId) return
+
   // Процент зависит от типа товара (referral_settings, фолбэк на константы).
   const { data: settings } = await supabaseAdmin.from('referral_settings').select('*')
   const percentByType = new Map<string, number>()
   for (const s of settings || []) percentByType.set(s.product_type, Number(s.percent))
 
-  let bonus = 0
-  for (const l of lines) {
-    const percent = percentByType.get(l.product.type) ?? REFERRAL_PERCENTS[l.product.type] ?? 0
-    bonus += (l.linePrice * percent) / 100
-  }
-  bonus = Math.round(bonus)
+  const bonus = computeReferralBonus(
+    lines.map((l) => ({ type: l.product.type, linePrice: l.linePrice })),
+    percentByType,
+    REFERRAL_PERCENTS
+  )
   if (bonus <= 0) return
 
   const { data: referrer } = await supabaseAdmin

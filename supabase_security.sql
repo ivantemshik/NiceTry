@@ -85,3 +85,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 DROP TRIGGER IF EXISTS users_protect_fields ON users;
 CREATE TRIGGER users_protect_fields BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION protect_sensitive_user_fields();
+
+-- ============================================================
+-- КРИТИЧНО (защита от повышения привилегий): базовая схема создаёт политику
+-- users_update_own (FOR UPDATE USING auth.uid()=id), которая БЕЗ ограничения по колонкам
+-- позволяет пользователю прямым REST-запросом (anon-ключ + свой JWT, ключ публичный!)
+-- выставить себе is_admin=true и произвольный balance. Триггер выше это откатывает, но
+-- мы дополнительно УДАЛЯЕМ клиентскую UPDATE-политику целиком: приложение НИКОГДА не меняет
+-- таблицу users со стороны клиента — все мутации идут через service-role в серверных роутах
+-- (profile PATCH с белым списком, заказы, админка). Так дыра закрывается на уровне политики,
+-- а триггер остаётся «поясом и подтяжками».
+DROP POLICY IF EXISTS users_update_own ON users;
+

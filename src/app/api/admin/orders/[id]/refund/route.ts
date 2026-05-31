@@ -29,7 +29,23 @@ export async function POST(
       )
     }
 
-    // Возвращаем средства пользователю
+    // Атомарно переводим заказ в cancelled с защитой от повторного возврата (гонка):
+    // условие .neq('cancelled') гарантирует, что только ОДИН параллельный запрос
+    // выполнит флип; остальные получат 0 строк и не начислят возврат повторно.
+    const { data: flipped, error: flipError } = await supabase
+      .from('orders')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', params.id)
+      .neq('status', 'cancelled')
+      .select()
+      .single()
+
+    if (flipError || !flipped) {
+      // Кто-то уже отменил заказ между чтением и записью — повторный возврат не делаем.
+      return NextResponse.json({ error: 'Order already cancelled' }, { status: 400 })
+    }
+
+    // Возвращаем средства пользователю (на внутренний баланс — ТЗ §8.1).
     const { data: userBalance, error: balanceError } = await supabase
       .from('users')
       .select('balance')
@@ -57,24 +73,9 @@ export async function POST(
       order_id: order.id,
     })
 
-    // Обновляем статус заказа
-    const { data: updatedOrder, error: updateError } = await supabase
-      .from('orders')
-      .update({
-        status: 'cancelled',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', params.id)
-      .select()
-      .single()
-
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
-    }
-
     return NextResponse.json({
       success: true,
-      order: updatedOrder,
+      order: flipped,
       refunded_amount: order.final_amount,
     })
   } catch (error: any) {
