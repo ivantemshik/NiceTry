@@ -1,4 +1,13 @@
 import Link from 'next/link'
+import { LEGAL } from '@/lib/legal'
+
+/** Ссылки на страницы юридических документов — единый источник для футера и меню. */
+export const LEGAL_LINKS = [
+  { href: '/offer', label: 'Публичная оферта' },
+  { href: '/privacy', label: 'Политика конфиденциальности' },
+  { href: '/refunds', label: 'Политика возвратов' },
+  { href: '/contacts', label: 'Обратная связь' },
+] as const
 
 export default function Footer() {
   return (
@@ -7,7 +16,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* О проекте */}
           <div>
-            <h4 className="font-bold text-navy mb-3">NiceTry</h4>
+            <h4 className="font-bold text-navy mb-3">{LEGAL.siteName}</h4>
             <p className="text-sm text-muted">
               Магазин цифровых товаров с моментальной доставкой
             </p>
@@ -35,25 +44,17 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Информация */}
+          {/* Документы */}
           <div>
-            <h4 className="font-bold text-navy mb-3">Информация</h4>
+            <h4 className="font-bold text-navy mb-3">Документы</h4>
             <ul className="space-y-2 text-sm">
-              <li>
-                <Link href="/about" className="text-muted hover:text-blue transition-colors">
-                  О нас
-                </Link>
-              </li>
-              <li>
-                <Link href="/faq" className="text-muted hover:text-blue transition-colors">
-                  FAQ
-                </Link>
-              </li>
-              <li>
-                <Link href="/contacts" className="text-muted hover:text-blue transition-colors">
-                  Контакты
-                </Link>
-              </li>
+              {LEGAL_LINKS.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="text-muted hover:text-blue transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -67,13 +68,13 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <Link href="/terms" className="text-muted hover:text-blue transition-colors">
-                  Условия использования
-                </Link>
+                <a href={`mailto:${LEGAL.email}`} className="text-muted hover:text-blue transition-colors">
+                  {LEGAL.email}
+                </a>
               </li>
               <li>
-                <Link href="/privacy" className="text-muted hover:text-blue transition-colors">
-                  Политика конфиденциальности
+                <Link href="/contacts" className="text-muted hover:text-blue transition-colors">
+                  Контакты
                 </Link>
               </li>
             </ul>
@@ -81,7 +82,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-8 pt-6 border-t border-border text-center text-sm text-muted">
-          <p>&copy; {new Date().getFullYear()} NiceTry. Все права защищены.</p>
+          <p>&copy; {new Date().getFullYear()} {LEGAL.siteName}. Все права защищены.</p>
         </div>
       </div>
     </footer>

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useUser } from '@/hooks/useUser'
 import { useCart } from '@/hooks/useCart'
+import { LEGAL_LINKS } from '@/components/Footer'
 
 /**
  * Шапка сайта по эталону index.html:
@@ -291,6 +292,15 @@ export default function Header() {
                   Войти / Регистрация
                 </button>
               )}
+
+              <div className="drawer-sep" />
+
+              {LEGAL_LINKS.map((link) => (
+                <button key={link.href} onClick={() => go(link.href)}>
+                  <svg className="ic" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7zM14 3v5h5" /></svg>
+                  {link.label}
+                </button>
+              ))}
             </nav>
           </div>
         </>
