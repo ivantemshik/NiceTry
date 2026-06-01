@@ -2,6 +2,10 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import AdminShell from '@/components/admin/AdminShell'
 
+// Админка зависит от живых данных БД и сессии — рендерим на каждый запрос,
+// иначе Next.js пытается статически пререндерить страницы на сборке и падает.
+export const dynamic = 'force-dynamic'
+
 export default async function AdminLayout({
   children,
 }: {
