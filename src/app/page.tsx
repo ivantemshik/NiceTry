@@ -1,14 +1,47 @@
 'use client'
 
-import { useAuth } from '@/hooks/useAuth'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import Button from '@/components/ui/Button'
-import { Category } from '@/types'
+import { useRouter } from 'next/navigation'
+import { Product, Category } from '@/types'
+import { PCard } from '@/components/PCard'
+
+/**
+ * Главная страница — витрина по эталону index.html (#view-home):
+ * промо-баннеры, плитки категорий, секции «Популярное / Новинки / Пополнения и валюта».
+ *
+ * Данные тянутся из существующих API (/api/categories, /api/products), у которых есть
+ * фолбэк-каталог — поэтому витрина наполнена даже без боевых ключей поставщиков.
+ */
+
+// Иконки категорий (пути SVG из index.html CATS), подбор по названию
+function categoryIconPaths(name: string): string {
+  const n = name.toLowerCase()
+  if (n.includes('пополнен')) return '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>'
+  if (n.includes('валют'))
+    return '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10h3.5a1.5 1.5 0 010 3H9.5"/>'
+  if (n.includes('ключ'))
+    return '<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8 2 2-2 2 2 2-3 3-2-2"/>'
+  if (n.includes('подписк')) return '<path d="M4 7h16v12H4zM4 7l8 6 8-6"/>'
+  if (n.includes('gift') || n.includes('гифт') || n.includes('карт'))
+    return '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M12 6v13"/>'
+  if (n.includes('аккаунт')) return '<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/>'
+  return '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16"/>'
+}
+
+function plural(n: number, forms: [string, string, string]): string {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return forms[0]
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return forms[1]
+  return forms[2]
+}
 
 export default function HomePage() {
-  const { user, loading } = useAuth()
+  const router = useRouter()
   const [categories, setCategories] = useState<Category[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetch('/api/categories')
@@ -17,121 +50,127 @@ export default function HomePage() {
       .catch((err) => console.error('Failed to load categories:', err))
   }, [])
 
-  return (
-    <div className="container py-12">
-      <div className="text-center max-w-3xl mx-auto">
-        <div className="mb-6">
-          <svg
-            width="150"
-            viewBox="0 0 320 70"
-            xmlns="http://www.w3.org/2000/svg"
-            className="mx-auto"
-          >
-            <text x="0" y="52" fontFamily="Arial" fontWeight="900" fontSize="58" fill="#1C8CE3">N</text>
-            <text x="38" y="52" fontFamily="Arial" fontWeight="900" fontSize="58" fill="#0F1E2E">T</text>
-            <text x="92" y="40" fontFamily="'Segoe Script','Brush Script MT',cursive" fontStyle="italic" fontSize="40" fill="#1C8CE3">Nice</text>
-            <text x="150" y="64" fontFamily="'Segoe Script','Brush Script MT',cursive" fontStyle="italic" fontSize="40" fill="#0F1E2E">try</text>
-          </svg>
+  useEffect(() => {
+    fetch('/api/products?limit=200')
+      .then((res) => res.json())
+      .then((data) => setProducts(data.products || []))
+      .catch((err) => console.error('Failed to load products:', err))
+      .finally(() => setLoading(false))
+  }, [])
+
+  // Кол-во товаров по категории (из загруженного списка)
+  const countByCategory = (categoryId: string) =>
+    products.filter((p) => p.category_id === categoryId).length
+
+  const popular = products.slice(0, 5)
+  const newItems = products.slice(5, 10)
+  const topup = products
+    .filter((p) => p.type === 'topup_auto' || p.type === 'topup_manual')
+    .slice(0, 5)
+
+  const renderSection = (title: string, list: Product[], linkText: string) =>
+    list.length > 0 && (
+      <section style={{ marginBottom: 30 }}>
+        <div className="section-head">
+          <h2>{title}</h2>
+          <Link className="link" href="/catalog">
+            {linkText}
+          </Link>
         </div>
+        <div className="prod-grid">
+          {list.map((p) => (
+            <PCard key={p.id} product={p} />
+          ))}
+        </div>
+      </section>
+    )
 
-        <h1 className="text-4xl font-bold text-navy mb-4">
-          Магазин цифровых товаров
-        </h1>
-
-        <p className="text-muted mb-8 text-lg">
-          Пополнение игровых аккаунтов, ключи и коды активации, gift-карты, подписки
-        </p>
-
-        {!loading && (
-          <div className="flex gap-4 justify-center">
-            {user ? (
-              <>
-                <Link href="/catalog">
-                  <Button variant="primary" size="lg">
-                    Перейти в каталог
-                  </Button>
-                </Link>
-                <Link href="/profile">
-                  <Button variant="secondary" size="lg">
-                    Мой профиль
-                  </Button>
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link href="/auth/login">
-                  <Button variant="primary" size="lg">
-                    Войти
-                  </Button>
-                </Link>
-                <Link href="/catalog">
-                  <Button variant="secondary" size="lg">
-                    Каталог товаров
-                  </Button>
-                </Link>
-              </>
-            )}
-          </div>
-        )}
-
-        <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="card card-pad text-center">
-            <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mx-auto mb-3">
-              <svg className="w-6 h-6 text-blue" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <h3 className="font-bold text-navy mb-2">Моментальная доставка</h3>
-            <p className="text-sm text-muted">
-              Получайте товары сразу после оплаты
-            </p>
-          </div>
-
-          <div className="card card-pad text-center">
-            <div className="w-12 h-12 bg-green-bg rounded-lg flex items-center justify-center mx-auto mb-3">
-              <svg className="w-6 h-6 text-green" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <h3 className="font-bold text-navy mb-2">Безопасные платежи</h3>
-            <p className="text-sm text-muted">
-              Защищённые транзакции и конфиденциальность
-            </p>
-          </div>
-
-          <div className="card card-pad text-center">
-            <div className="w-12 h-12 bg-amber-bg rounded-lg flex items-center justify-center mx-auto mb-3">
-              <svg className="w-6 h-6 text-amber" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="font-bold text-navy mb-2">Выгодные цены</h3>
-            <p className="text-sm text-muted">
-              Система скидок и реферальная программа
-            </p>
-          </div>
+  return (
+    <div className="container py-8">
+      {/* Промо-баннеры */}
+      <div className="promo-grid">
+        <div className="promo main">
+          <div className="deco" />
+          <span
+            className="badge"
+            style={{
+              background: 'rgba(255,255,255,.15)',
+              color: '#cfe7fb',
+              width: 'max-content',
+              marginBottom: 10,
+            }}
+          >
+            Цифровые товары · выдача за секунды
+          </span>
+          <h2>Пополни Steam и купи игровую валюту без комиссий</h2>
+          <p>Мгновенная выдача ключей, честный курс и поддержка 24/7. Более 180 000 выполненных заказов.</p>
+          <Link className="btn btn-primary btn-lg" href="/catalog">
+            Перейти в каталог
+          </Link>
+        </div>
+        <div className="promo side">
+          <span className="tag">
+            <svg className="ic ic-sm" viewBox="0 0 24 24">
+              <path d="M21 4L3 11l5 2 2 6 3-4 5 4z" />
+            </svg>
+            TELEGRAM-КАНАЛ
+          </span>
+          <h3>Розыгрыши и промокоды до –20%</h3>
+          <p style={{ maxWidth: '100%' }}>Первыми узнавайте о скидках и новых позициях.</p>
+          <a className="btn btn-secondary" href="#">
+            Подписаться
+          </a>
         </div>
       </div>
 
-      {/* Категории товаров */}
+      {/* Плитки категорий */}
       {categories.length > 0 && (
-        <div className="mt-16">
-          <h2 className="text-2xl font-bold text-navy mb-6 text-center">
-            Категории товаров
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {categories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/category/${category.slug}`}
-                className="card card-pad text-center hover:shadow-md transition-shadow duration-200"
-              >
-                <div className="text-3xl mb-2">{category.icon || '📦'}</div>
-                <h3 className="font-semibold text-navy">{category.name}</h3>
-              </Link>
+        <div className="cat-tiles">
+          {categories.map((cat) => {
+            const count = countByCategory(cat.id)
+            return (
+              <div key={cat.id} className="cat-tile" onClick={() => router.push('/catalog')}>
+                <div className="ico">
+                  <svg
+                    className="ic"
+                    viewBox="0 0 24 24"
+                    dangerouslySetInnerHTML={{ __html: categoryIconPaths(cat.name) }}
+                  />
+                </div>
+                <div className="nm">{cat.name}</div>
+                <div className="ct">
+                  {count > 0
+                    ? `${count} ${plural(count, ['товар', 'товара', 'товаров'])}`
+                    : 'смотреть'}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Секции товаров */}
+      {loading ? (
+        <section style={{ marginBottom: 30 }}>
+          <div className="section-head">
+            <h2>Популярное</h2>
+          </div>
+          <div className="prod-grid">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="scard">
+                <div className="cover" />
+                <div className="ln" style={{ width: '70%' }} />
+                <div className="ln" style={{ width: '40%', marginBottom: 14 }} />
+              </div>
             ))}
           </div>
-        </div>
+        </section>
+      ) : (
+        <>
+          {renderSection('Популярное', popular, 'Весь каталог →')}
+          {renderSection('Новинки', newItems, 'Смотреть все →')}
+          {renderSection('Пополнения и валюта', topup, 'Смотреть все →')}
+        </>
       )}
     </div>
   )

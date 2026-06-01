@@ -8,6 +8,8 @@ import Card from './ui/Card'
 interface ProductFiltersProps {
   onFilterChange: (filters: FilterState) => void
   categories?: Array<{ id: string; name: string }>
+  /** Начальные значения (например, поисковый запрос из URL) */
+  initial?: Partial<FilterState>
 }
 
 export interface FilterState {
@@ -17,6 +19,15 @@ export interface FilterState {
   supplier: string
   min_price: string
   max_price: string
+}
+
+const EMPTY: FilterState = {
+  search: '',
+  category_id: '',
+  type: '',
+  supplier: '',
+  min_price: '',
+  max_price: '',
 }
 
 const PRODUCT_TYPES = [
@@ -33,16 +44,8 @@ const SUPPLIERS = [
   { value: 'dessly', label: 'Dessly' },
 ]
 
-export function ProductFilters({ onFilterChange, categories = [] }: ProductFiltersProps) {
-  const [filters, setFilters] = useState<FilterState>({
-    search: '',
-    category_id: '',
-    type: '',
-    supplier: '',
-    min_price: '',
-    max_price: '',
-  })
-
+export function ProductFilters({ onFilterChange, categories = [], initial }: ProductFiltersProps) {
+  const [filters, setFilters] = useState<FilterState>({ ...EMPTY, ...initial })
   const [isExpanded, setIsExpanded] = useState(false)
 
   const handleChange = (key: keyof FilterState, value: string) => {
@@ -52,28 +55,26 @@ export function ProductFilters({ onFilterChange, categories = [] }: ProductFilte
   }
 
   const handleReset = () => {
-    const resetFilters: FilterState = {
-      search: '',
-      category_id: '',
-      type: '',
-      supplier: '',
-      min_price: '',
-      max_price: '',
-    }
-    setFilters(resetFilters)
-    onFilterChange(resetFilters)
+    setFilters(EMPTY)
+    onFilterChange(EMPTY)
   }
 
   const hasActiveFilters = Object.values(filters).some((v) => v !== '')
 
   return (
-    <Card className="mb-6">
+    <Card className="lg:sticky lg:top-24" padding={false}>
       <div className="card-pad">
-        {/* Поиск - всегда видим */}
-        <div className="mb-4">
+        {/* Поиск — всегда виден */}
+        <div className="relative mb-3">
+          <svg className="ic absolute left-3 top-1/2 -translate-y-1/2 text-muted-2 pointer-events-none" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.2-3.2" />
+          </svg>
           <Input
-            type="text"
-            placeholder="Поиск товаров..."
+            type="search"
+            aria-label="Поиск товаров"
+            placeholder="Поиск товаров…"
+            className="pl-10"
             value={filters.search}
             onChange={(e) => handleChange('search', e.target.value)}
           />
@@ -81,22 +82,36 @@ export function ProductFilters({ onFilterChange, categories = [] }: ProductFilte
 
         {/* Кнопка раскрытия фильтров */}
         <button
+          type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-sm text-blue font-semibold mb-3 hover:text-blue-600 transition-colors"
+          aria-expanded={isExpanded}
+          className="flex items-center justify-between w-full text-sm text-blue-700 font-semibold py-1.5 hover:text-blue transition-colors"
         >
-          {isExpanded ? '▼ Скрыть фильтры' : '▶ Показать фильтры'}
+          <span className="inline-flex items-center gap-2">
+            <svg className="ic ic-sm" viewBox="0 0 24 24">
+              <path d="M4 6h16M7 12h10M10 18h4" />
+            </svg>
+            Фильтры
+            {hasActiveFilters && (
+              <span className="badge badge-instant !h-5 !px-1.5 !text-[10.5px]">активны</span>
+            )}
+          </span>
+          <svg
+            className={`ic ic-sm transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            viewBox="0 0 24 24"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
         </button>
 
         {/* Расширенные фильтры */}
         {isExpanded && (
-          <div className="space-y-4 pt-3 border-t border-border">
-            {/* Категория */}
+          <div className="space-y-4 pt-4 mt-2 border-t border-border">
             {categories.length > 0 && (
               <div>
-                <label className="block text-sm font-semibold text-navy mb-2">
-                  Категория
-                </label>
+                <label className="label" htmlFor="f-cat">Категория</label>
                 <select
+                  id="f-cat"
                   value={filters.category_id}
                   onChange={(e) => handleChange('category_id', e.target.value)}
                   className="input"
@@ -111,12 +126,10 @@ export function ProductFilters({ onFilterChange, categories = [] }: ProductFilte
               </div>
             )}
 
-            {/* Тип товара */}
             <div>
-              <label className="block text-sm font-semibold text-navy mb-2">
-                Тип товара
-              </label>
+              <label className="label" htmlFor="f-type">Тип товара</label>
               <select
+                id="f-type"
                 value={filters.type}
                 onChange={(e) => handleChange('type', e.target.value)}
                 className="input"
@@ -129,12 +142,10 @@ export function ProductFilters({ onFilterChange, categories = [] }: ProductFilte
               </select>
             </div>
 
-            {/* Поставщик */}
             <div>
-              <label className="block text-sm font-semibold text-navy mb-2">
-                Поставщик
-              </label>
+              <label className="label" htmlFor="f-supplier">Поставщик</label>
               <select
+                id="f-supplier"
                 value={filters.supplier}
                 onChange={(e) => handleChange('supplier', e.target.value)}
                 className="input"
@@ -147,22 +158,22 @@ export function ProductFilters({ onFilterChange, categories = [] }: ProductFilte
               </select>
             </div>
 
-            {/* Диапазон цен */}
             <div>
-              <label className="block text-sm font-semibold text-navy mb-2">
-                Цена
-              </label>
-              <div className="flex gap-3">
+              <label className="label">Цена, ₽</label>
+              <div className="flex items-center gap-2">
                 <Input
                   type="number"
-                  placeholder="От"
+                  aria-label="Цена от"
+                  placeholder="от"
                   value={filters.min_price}
                   onChange={(e) => handleChange('min_price', e.target.value)}
                   min="0"
                 />
+                <span className="text-muted-2">—</span>
                 <Input
                   type="number"
-                  placeholder="До"
+                  aria-label="Цена до"
+                  placeholder="до"
                   value={filters.max_price}
                   onChange={(e) => handleChange('max_price', e.target.value)}
                   min="0"
@@ -170,14 +181,8 @@ export function ProductFilters({ onFilterChange, categories = [] }: ProductFilte
               </div>
             </div>
 
-            {/* Кнопка сброса */}
             {hasActiveFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleReset}
-                className="w-full"
-              >
+              <Button variant="ghost" size="sm" onClick={handleReset} block>
                 Сбросить фильтры
               </Button>
             )}

@@ -14,6 +14,7 @@ export interface User {
   status: UserStatus
   referral_code: string
   referred_by?: string
+  is_admin?: boolean
   created_at: string
 }
 

@@ -8,6 +8,7 @@ import { useUser } from '@/hooks/useUser'
 import { useAuth } from '@/hooks/useAuth'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
+import Alert from '@/components/ui/Alert'
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -22,21 +23,18 @@ export default function CheckoutPage() {
   const statusDiscount = user?.status?.discount_percent
     ? (totalAmount * user.status.discount_percent) / 100
     : 0
-
   const finalAmount = Math.max(0, totalAmount - statusDiscount)
+  const insufficient = paymentMethod === 'balance' && !!user && user.balance < finalAmount
 
   const handleSubmit = async () => {
     if (!authUser) {
       router.push('/auth/login?redirect=/checkout')
       return
     }
-
     if (items.length === 0) {
       router.push('/cart')
       return
     }
-
-    // Проверка баланса при оплате с баланса
     if (paymentMethod === 'balance' && user && user.balance < finalAmount) {
       setError('Недостаточно средств на балансе')
       return
@@ -44,7 +42,6 @@ export default function CheckoutPage() {
 
     setProcessing(true)
     setError('')
-
     try {
       const res = await fetch('/api/orders/create', {
         method: 'POST',
@@ -63,9 +60,7 @@ export default function CheckoutPage() {
           final_amount: finalAmount,
         }),
       })
-
       const data = await res.json()
-
       if (res.ok && data.order) {
         clearCart()
         router.push(`/orders/${data.order.id}`)
@@ -82,19 +77,14 @@ export default function CheckoutPage() {
 
   if (!authUser) {
     return (
-      <div className="container py-12">
-        <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-2xl font-bold text-navy mb-4">
-            Требуется авторизация
-          </h1>
-          <p className="text-muted mb-6">
-            Войдите в систему, чтобы оформить заказ
-          </p>
-          <Link href="/auth/login?redirect=/checkout">
-            <Button variant="primary" size="lg">
-              Войти
-            </Button>
-          </Link>
+      <div className="container py-10">
+        <div className="empty-state card max-w-lg mx-auto">
+          <div className="ico">
+            <svg className="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5" /><path d="M5 20a7 7 0 0114 0" /></svg>
+          </div>
+          <h3>Требуется авторизация</h3>
+          <p>Войдите в аккаунт, чтобы оформить заказ и получить товар.</p>
+          <Link href="/auth/login?redirect=/checkout" className="btn btn-primary mt-1">Войти</Link>
         </div>
       </div>
     )
@@ -102,82 +92,61 @@ export default function CheckoutPage() {
 
   if (items.length === 0) {
     return (
-      <div className="container py-12">
-        <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-2xl font-bold text-navy mb-4">
-            Корзина пуста
-          </h1>
-          <p className="text-muted mb-6">
-            Добавьте товары в корзину перед оформлением заказа
-          </p>
-          <Link href="/catalog">
-            <Button variant="primary" size="lg">
-              Перейти в каталог
-            </Button>
-          </Link>
+      <div className="container py-10">
+        <div className="empty-state card max-w-lg mx-auto">
+          <div className="ico">
+            <svg className="ic" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4" /><circle cx="18" cy="20" r="1.4" /><path d="M2 3h3l2.4 12.4a1.5 1.5 0 001.5 1.2h8.6a1.5 1.5 0 001.5-1.2L21 7H6" /></svg>
+          </div>
+          <h3>Корзина пуста</h3>
+          <p>Добавьте товары в корзину перед оформлением заказа.</p>
+          <Link href="/catalog" className="btn btn-primary mt-1">Перейти в каталог</Link>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="container py-8">
-      <h1 className="text-3xl font-bold text-navy mb-6">Оформление заказа</h1>
+    <div className="container py-6 sm:py-8">
+      <h1 className="mb-5 sm:mb-6">Оформление заказа</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6 items-start">
         {/* Основная информация */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-5">
           {/* Способ оплаты */}
-          <Card>
+          <Card padding={false}>
             <div className="card-pad">
-              <h2 className="text-xl font-bold text-navy mb-4">
-                Способ оплаты
-              </h2>
-
+              <h2 className="mb-4">Способ оплаты</h2>
               <div className="space-y-3">
-                {/* Оплата с баланса */}
-                <label className="flex items-start gap-3 p-4 border-2 border-border rounded-lg cursor-pointer hover:border-blue transition-colors">
+                <label
+                  className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-all ${
+                    paymentMethod === 'balance' ? 'border-blue bg-blue-50/60 ring-1 ring-blue/30' : 'border-border hover:border-blue-200'
+                  }`}
+                >
                   <input
                     type="radio"
                     name="payment"
                     value="balance"
                     checked={paymentMethod === 'balance'}
                     onChange={(e) => setPaymentMethod(e.target.value as 'balance')}
-                    className="mt-1"
+                    className="radio mt-0.5"
                   />
-                  <div className="flex-1">
-                    <div className="font-semibold text-navy mb-1">
-                      Оплата с баланса
-                    </div>
-                    <div className="text-sm text-muted">
-                      Доступно: {formatPrice(user?.balance || 0)}
-                    </div>
-                    {user && user.balance < finalAmount && (
-                      <div className="text-xs text-red mt-1">
-                        Недостаточно средств. Пополните баланс.
-                      </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-navy mb-0.5">Оплата с баланса</div>
+                    <div className="text-sm text-muted">Доступно: {formatPrice(user?.balance || 0)}</div>
+                    {insufficient && (
+                      <div className="text-xs text-red mt-1 font-medium">Недостаточно средств — пополните баланс.</div>
                     )}
                   </div>
                 </label>
 
-                {/* Оплата картой (заглушка) */}
-                <label className="flex items-start gap-3 p-4 border-2 border-border rounded-lg cursor-pointer hover:border-blue transition-colors opacity-50">
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="card"
-                    checked={paymentMethod === 'card'}
-                    onChange={(e) => setPaymentMethod(e.target.value as 'card')}
-                    className="mt-1"
-                    disabled
-                  />
+                <label className="flex items-start gap-3 p-4 border border-border rounded-lg cursor-not-allowed opacity-60">
+                  <input type="radio" name="payment" value="card" disabled className="radio mt-0.5" />
                   <div className="flex-1">
-                    <div className="font-semibold text-navy mb-1">
+                    <div className="font-semibold text-navy mb-0.5 flex items-center gap-2">
                       Оплата картой
+                      <span className="badge badge-amber !h-5">скоро</span>
                     </div>
-                    <div className="text-sm text-muted">
-                      Скоро будет доступно
-                    </div>
+                    <div className="text-sm text-muted">Скоро будет доступно</div>
                   </div>
                 </label>
               </div>
@@ -185,36 +154,25 @@ export default function CheckoutPage() {
           </Card>
 
           {/* Список товаров */}
-          <Card>
+          <Card padding={false}>
             <div className="card-pad">
-              <h2 className="text-xl font-bold text-navy mb-4">
-                Товары в заказе
-              </h2>
-
+              <h2 className="mb-4">Товары в заказе</h2>
               <div className="space-y-3">
                 {items.map((item, index) => (
                   <div
                     key={`${item.product.id}-${index}`}
-                    className="flex justify-between items-start pb-3 border-b border-border last:border-0"
+                    className="flex justify-between items-start gap-3 pb-3 border-b border-border-2 last:border-0 last:pb-0"
                   >
-                    <div className="flex-1">
-                      <div className="font-semibold text-navy">
-                        {item.product.name}
-                      </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-navy truncate">{item.product.name}</div>
                       {item.customAmount ? (
-                        <div className="text-sm text-muted">
-                          Сумма: {formatPrice(item.customAmount)}
-                        </div>
+                        <div className="text-sm text-muted">Сумма: {formatPrice(item.customAmount)}</div>
                       ) : (
-                        <div className="text-sm text-muted">
-                          {formatPrice(item.product.price)} × {item.quantity}
-                        </div>
+                        <div className="text-sm text-muted">{formatPrice(item.product.price)} × {item.quantity}</div>
                       )}
                     </div>
-                    <div className="font-semibold text-navy">
-                      {formatPrice(
-                        item.customAmount || item.product.price * item.quantity
-                      )}
+                    <div className="font-semibold text-navy whitespace-nowrap">
+                      {formatPrice(item.customAmount || item.product.price * item.quantity)}
                     </div>
                   </div>
                 ))}
@@ -225,52 +183,35 @@ export default function CheckoutPage() {
 
         {/* Итого */}
         <div className="lg:col-span-1">
-          <Card className="sticky top-20">
+          <Card className="lg:sticky lg:top-24" padding={false}>
             <div className="card-pad">
-              <h2 className="text-xl font-bold text-navy mb-4">Итого</h2>
+              <h2 className="mb-4">Итого</h2>
 
               <div className="space-y-2 mb-4 pb-4 border-b border-border">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted">Сумма товаров:</span>
+                  <span className="text-muted">Сумма товаров</span>
                   <span className="font-semibold">{formatPrice(totalAmount)}</span>
                 </div>
-
                 {statusDiscount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted">
-                      Скидка статуса ({user?.status?.discount_percent}%):
-                    </span>
-                    <span className="font-semibold text-green">
-                      -{formatPrice(statusDiscount)}
-                    </span>
+                    <span className="text-muted">Скидка статуса ({user?.status?.discount_percent}%)</span>
+                    <span className="font-semibold text-green">−{formatPrice(statusDiscount)}</span>
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-between items-center mb-6">
-                <span className="text-lg font-bold text-navy">К оплате:</span>
-                <span className="text-2xl font-bold text-navy">
-                  {formatPrice(finalAmount)}
-                </span>
+              <div className="flex justify-between items-center mb-5">
+                <span className="text-lg font-bold text-navy">К оплате</span>
+                <span className="text-2xl font-extrabold text-navy">{formatPrice(finalAmount)}</span>
               </div>
 
-              {error && (
-                <div className="mb-4 p-3 bg-red-bg text-red text-sm rounded-lg">
-                  {error}
-                </div>
-              )}
+              {error && <div className="mb-4"><Alert variant="error">{error}</Alert></div>}
 
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={handleSubmit}
-                disabled={processing || (paymentMethod === 'balance' && user ? user.balance < finalAmount : false)}
-                className="w-full"
-              >
-                {processing ? 'Обработка...' : 'Оплатить'}
+              <Button variant="primary" size="lg" onClick={handleSubmit} loading={processing} disabled={insufficient} block>
+                Оплатить
               </Button>
 
-              <p className="text-xs text-muted text-center mt-3">
+              <p className="text-xs text-muted-2 text-center mt-3">
                 Нажимая кнопку, вы соглашаетесь с условиями использования
               </p>
             </div>

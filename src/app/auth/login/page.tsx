@@ -1,12 +1,16 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import Link from 'next/link'
+import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
+import Alert from '@/components/ui/Alert'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
+  const [devLoading, setDevLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const router = useRouter()
@@ -16,21 +20,17 @@ export default function LoginPage() {
     setLoading(true)
     setMessage('')
     setError('')
-
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
-
       const data = await response.json()
-
       if (!response.ok) {
         setError(data.error || 'Ошибка отправки')
         return
       }
-
       setMessage(data.message)
       setEmail('')
     } catch (err) {
@@ -46,94 +46,80 @@ export default function LoginPage() {
       setError('Введите email')
       return
     }
-    setLoading(true)
+    setDevLoading(true)
     setMessage('')
     setError('')
-
     try {
       const response = await fetch('/api/auth/dev-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
-
       const data = await response.json()
-
       if (!response.ok) {
         setError(data.error || 'Ошибка входа')
         return
       }
-
-      // Сессия установлена в cookies — перезагружаем на главную.
       window.location.href = '/'
     } catch (err) {
       setError('Ошибка сети')
     } finally {
-      setLoading(false)
+      setDevLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="card card-pad w-full max-w-md">
-        <div className="text-center mb-6">
-          <h1 className="text-navy text-2xl font-bold mb-2">Вход в NiceTry</h1>
-          <p className="text-muted text-sm">
-            Введите email — мы отправим ссылку для входа
-          </p>
-        </div>
+    <div className="container flex items-center justify-center py-12 sm:py-20 min-h-[70vh]">
+      <div className="w-full max-w-md">
+        {/* Логотип */}
+        <Link href="/" className="flex justify-center mb-6" aria-label="NiceTry">
+          <svg viewBox="0 0 250 56" style={{ height: 38 }} xmlns="http://www.w3.org/2000/svg">
+            <text x="0" y="42" fontFamily="Arial" fontWeight="900" fontSize="46" fill="#1C8CE3">N</text>
+            <text x="30" y="42" fontFamily="Arial" fontWeight="900" fontSize="46" fill="#0F1E2E">T</text>
+            <text x="72" y="31" fontFamily="'Segoe Script','Brush Script MT',cursive" fontStyle="italic" fontSize="31" fill="#1C8CE3">Nice</text>
+            <text x="118" y="50" fontFamily="'Segoe Script','Brush Script MT',cursive" fontStyle="italic" fontSize="31" fill="#0F1E2E">try</text>
+          </svg>
+        </Link>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-ink mb-2">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              className="input"
-              required
-              disabled={loading}
-            />
+        <div className="card card-pad">
+          <div className="text-center mb-6">
+            <h1 className="text-[22px]">Вход в аккаунт</h1>
+            <p className="text-muted text-sm mt-1.5">Введите email — мы отправим ссылку для входа</p>
           </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
-              {error}
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="label">Email</label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                required
+                disabled={loading || devLoading}
+                autoComplete="email"
+                error={!!error}
+              />
             </div>
-          )}
 
-          {message && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded text-sm">
-              {message}
-            </div>
-          )}
+            {error && <Alert variant="error">{error}</Alert>}
+            {message && <Alert variant="success">{message}</Alert>}
 
-          <button
-            type="submit"
-            className="btn btn-primary w-full"
-            disabled={loading}
-          >
-            {loading ? 'Отправка...' : 'Получить ссылку для входа'}
-          </button>
+            <Button type="submit" variant="primary" size="lg" loading={loading} block>
+              Получить ссылку для входа
+            </Button>
 
-          {process.env.NODE_ENV === 'development' && (
-            <button
-              type="button"
-              onClick={handleDevLogin}
-              className="btn btn-ghost w-full"
-              disabled={loading}
-            >
-              Войти без письма (dev)
-            </button>
-          )}
-        </form>
+            {process.env.NODE_ENV === 'development' && (
+              <Button type="button" variant="ghost" onClick={handleDevLogin} loading={devLoading} block>
+                Войти без письма (dev)
+              </Button>
+            )}
+          </form>
 
-        <div className="mt-6 text-center text-sm text-muted">
-          <p>Нет аккаунта? Просто введите email — мы создадим его автоматически</p>
+          <p className="mt-6 text-center text-[13px] text-muted-2">
+            Нет аккаунта? Просто введите email — мы создадим его автоматически.
+          </p>
         </div>
       </div>
     </div>

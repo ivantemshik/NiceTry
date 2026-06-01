@@ -1,7 +1,8 @@
 import { InputHTMLAttributes } from 'react'
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  error?: boolean
+  /** Подсветить поле как ошибочное (красная рамка + aria-invalid) */
+  error?: boolean | string
 }
 
 export default function Input({
@@ -9,9 +10,11 @@ export default function Input({
   className = '',
   ...props
 }: InputProps) {
+  const hasError = Boolean(error)
   return (
     <input
-      className={`input ${error ? 'err' : ''} ${className}`.trim()}
+      className={`input ${hasError ? 'err' : ''} ${className}`.trim()}
+      aria-invalid={hasError || undefined}
       {...props}
     />
   )
