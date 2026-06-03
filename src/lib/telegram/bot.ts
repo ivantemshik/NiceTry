@@ -85,19 +85,23 @@ async function handleMessage(msg: TgMessage): Promise<void> {
   const chatId = msg.chat.id
   const text = (msg.text || '').trim()
 
-  // Команды.
-  if (text.startsWith('/start')) {
-    const param = text.slice('/start'.length).trim()
+  // Разбор команды: первое «слово» — команда (возможно с @botname), остальное — параметр.
+  // Так `/start@MyBot <token>` и `/START` обрабатываются корректно, а `/startfoo` командой не считается.
+  const firstSpace = text.search(/\s/)
+  const head = firstSpace === -1 ? text : text.slice(0, firstSpace)
+  const cmd = head.split('@')[0].toLowerCase()
+  const param = firstSpace === -1 ? '' : text.slice(firstSpace + 1).trim()
+
+  if (cmd === '/start') {
     return await handleStart(chatId, from, param)
   }
-  if (text.startsWith('/help')) {
+  if (cmd === '/help') {
     return void (await safeSend(chatId, helpText(), mainMenu()))
   }
-  if (text.startsWith('/menu')) {
+  if (cmd === '/menu') {
     return void (await safeSend(chatId, 'Меню NiceTry:', mainMenu()))
   }
-  if (text.startsWith('/link')) {
-    const param = text.slice('/link'.length).trim()
+  if (cmd === '/link') {
     if (param) return await handleStart(chatId, from, param)
     return void (await safeSend(chatId, 'Чтобы привязать аккаунт сайта, откройте профиль на сайте и нажмите «Привязать Telegram».', mainMenu()))
   }

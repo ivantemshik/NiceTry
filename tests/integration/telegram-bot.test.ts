@@ -107,6 +107,43 @@ describe('processUpdate — команды и меню (ТЗ §5.7)', () => {
     expect(sent.some((s) => s.text.includes('Код привязки'))).toBe(true)
   })
 
+  it('/start@BotName <token>: команда с @username парсится, токен привязывается (Блок 5 аудита)', async () => {
+    const token = createSiteLinkToken('11111111-2222-3333-4444-555555555555', { botToken: BOT })
+    await processUpdate({ message: { message_id: 8, chat: { id: 999 }, from: { id: 999 }, text: `/start@NiceTryBot ${token}` } })
+    expect(accountMock.linkTelegramToUser).toHaveBeenCalledWith(
+      '11111111-2222-3333-4444-555555555555',
+      expect.objectContaining({ id: 999 })
+    )
+  })
+
+  it('/START в верхнем регистре распознаётся как команда (Блок 5 аудита)', async () => {
+    await processUpdate({ message: { message_id: 9, chat: { id: 999 }, from: { id: 999, first_name: 'Сэм' }, text: '/START' } })
+    expect(accountMock.ensureTelegramUser).toHaveBeenCalled()
+    expect(JSON.stringify(sent[0].markup)).toContain('web_app')
+  })
+
+  it('/startfoo НЕ считается /start (точное совпадение команды, Блок 5 аудита)', async () => {
+    await processUpdate({ message: { message_id: 10, chat: { id: 999 }, from: { id: 999 }, text: '/startfoo' } })
+    // Не привязка и не приветствие — fallback «Используйте меню».
+    expect(accountMock.linkTelegramToUser).not.toHaveBeenCalled()
+    expect(sent.some((s) => s.text.includes('Используйте меню'))).toBe(true)
+  })
+
+  it('неизвестная callback_data не роняет обработчик (Блок 5 аудита)', async () => {
+    await expect(
+      processUpdate({
+        callback_query: { id: 'cb2', from: { id: 999 }, message: { message_id: 11, chat: { id: 999 } }, data: 'evil; DROP TABLE' },
+      })
+    ).resolves.toBeUndefined()
+    expect(answered).toContain('cb2')
+  })
+
+  it('сообщение без текста (стикер/фото) не роняет обработчик (Блок 5 аудита)', async () => {
+    await expect(
+      processUpdate({ message: { message_id: 12, chat: { id: 999 }, from: { id: 999 } } })
+    ).resolves.toBeUndefined()
+  })
+
   it('не бросает при ошибке обработчика (устойчивость webhook)', async () => {
     accountMock.ensureTelegramUser.mockRejectedValueOnce(new Error('db down'))
     await expect(
