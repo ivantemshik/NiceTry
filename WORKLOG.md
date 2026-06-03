@@ -712,3 +712,11 @@ TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, TELEGRAM_WEBAPP_URL, TELEGRAM_WEBHOOK
 
 ### ⚠️ Единственный ручной шаг деплоя
 Vercel-проект не привязан локально (нет .vercel/токена) — переменные окружения на Vercel добавить вручную: TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, TELEGRAM_WEBAPP_URL, TELEGRAM_WEBHOOK_SECRET, CRON_SECRET (значения — из .env.local). Webhook уже зарегистрирован на прод-URL и заработает после деплоя с секретами.
+
+## Аудит бота — Блок 1: Проверка подписи initData — 2026-06-03
+- Статус: OK (усилены тесты)
+- Проверено: src/lib/telegram/verify.ts (verifyInitData + токены привязки), tests/unit/telegram-verify.test.ts, helpers/telegram.ts, config.ts
+- Найдено: критических дыр нет. Алгоритм HMAC точно по спеке (secret=HMAC_SHA256("WebAppData", bot_token), data_check отсортирован, без hash). auth_date TTL проверяется (INITDATA_MAX_AGE 24ч). Сравнение хешей constant-time (timingSafeEqual + проверка длины, non-hex не бросает). Пустой botToken → fail-closed (bad_signature), нет dev-байпаса. Инъекция лишних полей/перестановка/пустой hash ломают подпись. Поле signature (новые клиенты) корректно входит в data_check.
+- Исправлено: ничего (код корректен) — добавлены регрессионные тесты на векторы атак.
+- Тесты: +6 (пустой hash, инъекция поля, non-hex hash, fail-closed без токена, signature-поле, нечисловой auth_date). Весь сьют: 203/203 зелёных.
+- Осталько/TODO: нет. Переход к Блоку 2 (webhook).

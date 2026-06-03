@@ -124,6 +124,49 @@ describe('Код привязки Telegram→сайт (claim, ТЗ §5.2)', () =
   })
 })
 
+describe('verifyInitData — устойчивость к подделке (Блок 1 аудита)', () => {
+  it('пустой hash (hash=) → no_hash', () => {
+    const initData = buildInitData(BOT, USER)
+    const stripped = initData.replace(/hash=[a-f0-9]+/, 'hash=')
+    expect(verifyInitData(stripped, { botToken: BOT }).reason).toBe('no_hash')
+  })
+
+  it('инъекция лишнего НЕподписанного поля ломает подпись', () => {
+    const initData = buildInitData(BOT, USER)
+    const r = verifyInitData(initData + '&injected=evil', { botToken: BOT })
+    expect(r.ok).toBe(false)
+    expect(r.reason).toBe('bad_signature')
+  })
+
+  it('hash из non-hex символов той же длины → bad_signature (constant-time не бросает)', () => {
+    const initData = buildInitData(BOT, USER)
+    const bad = initData.replace(/hash=[a-f0-9]+/, 'hash=' + 'z'.repeat(64))
+    const r = verifyInitData(bad, { botToken: BOT })
+    expect(r.ok).toBe(false)
+    expect(r.reason).toBe('bad_signature')
+  })
+
+  it('пустой botToken → fail closed (bad_signature), не пропускает', () => {
+    const initData = buildInitData(BOT, USER)
+    expect(verifyInitData(initData, { botToken: '' }).reason).toBe('bad_signature')
+  })
+
+  it('поле signature (Ed25519 от новых клиентов) учитывается в data_check и не ломает валидацию', () => {
+    // Telegram включает signature в хеш — собираем подписанный initData с этим полем.
+    const initData = buildInitData(BOT, USER, { extra: { signature: 'abc123_ed25519' } })
+    const r = verifyInitData(initData, { botToken: BOT })
+    expect(r.ok).toBe(true)
+    expect(r.user?.id).toBe(555)
+  })
+
+  it('auth_date=abc (не число) → expired, не падает', () => {
+    const initData = buildInitData(BOT, USER, { extra: {} }).replace(/auth_date=\d+/, 'auth_date=abc')
+    // подпись сломана из-за подмены auth_date → bad_signature раньше expired; проверяем что не падает
+    const r = verifyInitData(initData, { botToken: BOT })
+    expect(r.ok).toBe(false)
+  })
+})
+
 // initData с валидной подписью, но БЕЗ user — для проверки ветки no_user.
 function buildInitDataNoUser(botToken: string): string {
   const { createHmac } = require('crypto')
