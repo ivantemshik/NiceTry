@@ -64,6 +64,8 @@ export interface AppRouteDenomination {
   inStock: boolean
   isLongOrder?: boolean
   minQtyToLongOrder?: number
+  /** Код региона аккаунта (например PSN: US/PL/DE/FR/TR/IN/UK), если товар региональный. */
+  region?: string
 }
 
 export interface AppRouteService {
@@ -81,6 +83,13 @@ export interface AppRouteService {
   fields?: AppRouteFieldDef[]
   minAmountUsd?: number
   maxAmountUsd?: number
+  /**
+   * Коды регионов для региональных товаров (например PSN: US/PL/DE/FR/TR/IN/UK).
+   * Если задано, каждый номинал разворачивается в отдельный SKU на каждый регион
+   * (см. catalog.ts → appRouteProducts). В боевом режиме AppRoute обычно отдаёт
+   * регионы отдельными сервисами/номиналами — тогда поле не используется.
+   */
+  regions?: string[]
 }
 
 export interface AppRouteServicesPage {

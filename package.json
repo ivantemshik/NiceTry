@@ -9,6 +9,7 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "seed": "node scripts/seed.mjs",
+    "sync:approute": "node scripts/sync-approute.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:secure": "node scripts/apply-db-security.mjs",

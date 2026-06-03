@@ -61,11 +61,11 @@ describe('priceRub — формула ценообразования ТЗ', () =
 })
 
 describe('buildCategories — категории каталога', () => {
-  it('возвращает все 10 категорий из ТЗ §5.3', () => {
+  it('возвращает все категории из ТЗ §5.3 + добавленные (PUBG Mobile, Valorant RU)', () => {
     const cats = buildCategories()
-    expect(cats).toHaveLength(10)
+    expect(cats).toHaveLength(12)
     const slugs = cats.map((c) => c.slug)
-    for (const s of ['steam', 'psn', 'rockstar', 'roblox', 'appstore', 'google', 'wow-time-card', 'blizzard', 'minecraft', 'dessly-games']) {
+    for (const s of ['steam', 'psn', 'rockstar', 'roblox', 'appstore', 'google', 'wow-time-card', 'blizzard', 'minecraft', 'pubg-mobile', 'valorant-ru', 'dessly-games']) {
       expect(slugs).toContain(s)
     }
   })
@@ -134,10 +134,40 @@ describe('buildCatalogProducts — нормализованный каталог
 
   it('каждый shop-номинал маппится на свою категорию с правильной наценкой', async () => {
     const products = await buildCatalogProducts()
-    // PSN $10: наценка 16, курс 80 → priceRub(10,80,16) = 928
-    const psn10 = products.find((p) => p.id === 'den_psn_10')
+    // PSN $10 (региональный SKU): наценка 16, курс 80 → priceRub(10,80,16) = 928
+    const psn10 = products.find((p) => p.id === 'den_psn_10_us')
     expect(psn10!.price).toBe(priceRub(10, 80, 16))
     expect(psn10!.category!.slug).toBe('psn')
+  })
+
+  it('PSN разворачивается на 7 региональных вариантов (US/PL/DE/FR/TR/IN/UK) на каждый номинал', async () => {
+    const products = await buildCatalogProducts()
+    const regions = ['us', 'pl', 'de', 'fr', 'tr', 'in', 'uk']
+    // Для номинала $10 должно быть ровно 7 SKU — по одному на регион.
+    const psn10Skus = products.filter((p) => p.denomination_id?.startsWith('den_psn_10_'))
+    expect(psn10Skus).toHaveLength(7)
+    for (const r of regions) {
+      const sku = products.find((p) => p.denomination_id === `den_psn_10_${r}`)
+      expect(sku, `регион ${r}`).toBeDefined()
+      expect(sku!.category!.slug).toBe('psn')
+      expect(sku!.name).toContain(`(${r.toUpperCase()})`)
+    }
+  })
+
+  it('добавленные категории PUBG Mobile и Valorant RU присутствуют в каталоге', async () => {
+    const products = await buildCatalogProducts()
+    expect(products.find((p) => p.category?.slug === 'pubg-mobile')).toBeDefined()
+    expect(products.find((p) => p.category?.slug === 'valorant-ru')).toBeDefined()
+  })
+
+  it('апсерт без дублей: (supplier, supplier_id, denomination_id) уникальны во всём каталоге', async () => {
+    // Импортёр и sync:approute апсертят по этому ключу, поэтому он обязан быть уникальным —
+    // иначе повторный запуск плодил бы дубли.
+    const products = await buildCatalogProducts()
+    const keys = products
+      .filter((p) => p.supplier_id)
+      .map((p) => `${p.supplier}|${p.supplier_id}|${p.denomination_id ?? ''}`)
+    expect(new Set(keys).size).toBe(keys.length)
   })
 
   it('данные каталога согласованы: каждый approuteService ссылается на существующую категорию', () => {

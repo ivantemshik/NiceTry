@@ -10,7 +10,9 @@
     { "slug": "wow-time-card", "name": "WoW Time Card", "icon": "🐉", "supplier": "approute", "markup_percent": 13, "usd_to_rub_rate": 80, "sort_order": 7 },
     { "slug": "blizzard", "name": "Blizzard", "icon": "❄️", "supplier": "approute", "markup_percent": 14, "usd_to_rub_rate": 80, "sort_order": 8 },
     { "slug": "minecraft", "name": "Minecraft", "icon": "⛏️", "supplier": "approute", "markup_percent": 16, "usd_to_rub_rate": 80, "sort_order": 9 },
-    { "slug": "dessly-games", "name": "Отправка игр / гифтов", "icon": "🎁", "supplier": "dessly", "markup_percent": 18, "usd_to_rub_rate": 82, "sort_order": 10 }
+    { "slug": "pubg-mobile", "name": "PUBG Mobile", "icon": "🔫", "supplier": "approute", "markup_percent": 16, "usd_to_rub_rate": 80, "sort_order": 10 },
+    { "slug": "valorant-ru", "name": "Valorant RU", "icon": "🎯", "supplier": "approute", "markup_percent": 15, "usd_to_rub_rate": 80, "sort_order": 11 },
+    { "slug": "dessly-games", "name": "Отправка игр / гифтов", "icon": "🎁", "supplier": "dessly", "markup_percent": 18, "usd_to_rub_rate": 82, "sort_order": 12 }
   ],
   "approuteServices": [
     {
@@ -33,7 +35,8 @@
     },
     {
       "id": "svc_psn_giftcard", "name": "PlayStation Network Gift Card", "ordersType": "shop", "categorySlug": "psn",
-      "description": "Пополнение кошелька PSN подарочным кодом.",
+      "description": "Пополнение кошелька PSN подарочным кодом. Код привязан к региону аккаунта.",
+      "regions": ["US", "PL", "DE", "FR", "TR", "IN", "UK"],
       "items": [
         { "id": "den_psn_10", "name": "$10", "price": 10, "currency": "USD", "inStock": true },
         { "id": "den_psn_25", "name": "$25", "price": 25, "currency": "USD", "inStock": true },
@@ -97,6 +100,25 @@
       "description": "Лицензионный ключ Minecraft.",
       "items": [
         { "id": "den_minecraft_java", "name": "Java & Bedrock Edition", "price": 30, "currency": "USD", "inStock": true }
+      ]
+    },
+    {
+      "id": "svc_pubg_uc", "name": "PUBG Mobile UC", "ordersType": "shop", "categorySlug": "pubg-mobile",
+      "description": "Внутриигровая валюта UC для PUBG Mobile.",
+      "items": [
+        { "id": "den_pubg_60", "name": "60 UC", "price": 1, "currency": "USD", "inStock": true },
+        { "id": "den_pubg_325", "name": "325 UC", "price": 5, "currency": "USD", "inStock": true },
+        { "id": "den_pubg_660", "name": "660 UC", "price": 10, "currency": "USD", "inStock": true },
+        { "id": "den_pubg_1800", "name": "1800 UC", "price": 25, "currency": "USD", "inStock": true }
+      ]
+    },
+    {
+      "id": "svc_valorant_ru", "name": "Valorant Points (RU)", "ordersType": "shop", "categorySlug": "valorant-ru",
+      "description": "Valorant Points для аккаунтов российского региона.",
+      "items": [
+        { "id": "den_valorant_475", "name": "475 VP", "price": 5, "currency": "USD", "inStock": true },
+        { "id": "den_valorant_1000", "name": "1000 VP", "price": 10, "currency": "USD", "inStock": true },
+        { "id": "den_valorant_2050", "name": "2050 VP", "price": 20, "currency": "USD", "inStock": true }
       ]
     }
   ],

@@ -97,13 +97,19 @@ async function run() {
         supplier_fields: svc.fields || null, sort_order: sort++,
       }, { supplier_service_id: svc.id, denomination_id: svc.items?.[0]?.id })
     } else {
+      // Региональные SKU (PSN: US/PL/DE/FR/TR/IN/UK) — каждый регион отдельным товаром.
+      const regions = svc.regions && svc.regions.length ? svc.regions : [null]
       for (const den of svc.items) {
-        await upsertProduct({
-          name: `${svc.name} — ${den.name}`, description: svc.description || '', type: 'instant',
-          category_id: categoryId, price: priceRub(den.price, rate, markup),
-          stock: den.inStock ? 100 : 0, is_active: den.inStock, supplier: 'approute',
-          supplier_service_id: svc.id, denomination_id: den.id, sort_order: sort++,
-        }, { supplier_service_id: svc.id, denomination_id: den.id })
+        for (const region of regions) {
+          const denomId = region ? `${den.id}_${region.toLowerCase()}` : den.id
+          const nameSuffix = region ? ` (${region})` : ''
+          await upsertProduct({
+            name: `${svc.name} — ${den.name}${nameSuffix}`, description: svc.description || '', type: 'instant',
+            category_id: categoryId, price: priceRub(den.price, rate, markup),
+            stock: den.inStock ? 100 : 0, is_active: den.inStock, supplier: 'approute',
+            supplier_service_id: svc.id, denomination_id: denomId, sort_order: sort++,
+          }, { supplier_service_id: svc.id, denomination_id: denomId })
+        }
       }
     }
   }

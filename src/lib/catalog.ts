@@ -9,6 +9,7 @@
 
 import catalog from '@/data/catalog.json'
 import { listServices, type AppRouteService } from '@/lib/approute'
+import { mapServiceToCategorySlug } from '@/lib/approute/category-map'
 import { listGames, type DesslyGame } from '@/lib/dessly'
 import type { Product, Category, ProductType } from '@/types'
 
@@ -55,7 +56,9 @@ const NOW = new Date(0).toISOString() // детерминированная ме
 function appRouteProducts(services: AppRouteService[]): Product[] {
   const products: Product[] = []
   for (const svc of services) {
-    const cat = categoryBySlug(svc.categoryName || '')
+    // Маппинг таксономии AppRoute → внутренний slug (быстрый путь в мок-режиме, ключевые слова — в боевом).
+    const slug = mapServiceToCategorySlug(svc)
+    const cat = slug ? categoryBySlug(slug) : undefined
     if (!cat) continue
     const isDtu = svc.type === 'dtu'
     const productType: ProductType = isDtu ? 'topup_auto' : 'instant'
@@ -87,23 +90,30 @@ function appRouteProducts(services: AppRouteService[]): Product[] {
     }
 
     // shop: отдельный товар на каждый номинал (denomination).
+    // Если у сервиса заданы регионы (PSN: US/PL/DE/FR/TR/IN/UK) — разворачиваем
+    // каждый номинал в отдельный SKU на каждый регион (уникальный denomination_id → нет дублей).
+    const regions = svc.regions && svc.regions.length ? svc.regions : [null]
     for (const den of svc.items) {
-      products.push({
-        id: den.id,
-        name: `${svc.name} — ${den.name}`,
-        description: svc.description || '',
-        type: productType,
-        category_id: cat.id,
-        category: { name: cat.name, slug: cat.slug },
-        price: priceRub(den.price, cat.usd_to_rub_rate, cat.markup_percent),
-        stock: den.inStock ? 100 : 0,
-        is_active: den.inStock,
-        supplier: 'approute',
-        supplier_id: svc.id,
-        denomination_id: den.id,
-        created_at: NOW,
-        updated_at: NOW,
-      })
+      for (const region of regions) {
+        const denomId = region ? `${den.id}_${region.toLowerCase()}` : den.id
+        const nameSuffix = region ? ` (${region})` : ''
+        products.push({
+          id: denomId,
+          name: `${svc.name} — ${den.name}${nameSuffix}`,
+          description: svc.description || '',
+          type: productType,
+          category_id: cat.id,
+          category: { name: cat.name, slug: cat.slug },
+          price: priceRub(den.price, cat.usd_to_rub_rate, cat.markup_percent),
+          stock: den.inStock ? 100 : 0,
+          is_active: den.inStock,
+          supplier: 'approute',
+          supplier_id: svc.id,
+          denomination_id: denomId,
+          created_at: NOW,
+          updated_at: NOW,
+        })
+      }
     }
   }
   return products

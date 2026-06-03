@@ -46,6 +46,7 @@ function toService(raw: RawService): AppRouteService {
   const anyRaw = raw as RawService & {
     minAmountUsd?: number
     maxAmountUsd?: number
+    regions?: string[]
     fields?: Array<{ key: string; name: string; type: string; required: boolean }>
   }
   return {
@@ -56,6 +57,7 @@ function toService(raw: RawService): AppRouteService {
     description: raw.description,
     minAmountUsd: anyRaw.minAmountUsd,
     maxAmountUsd: anyRaw.maxAmountUsd,
+    regions: anyRaw.regions,
     fields: anyRaw.fields?.map((f) => ({
       key: f.key,
       name: f.name,

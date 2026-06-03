@@ -1,0 +1,29 @@
+{
+  "_comment": "Маппинг таксономии AppRoute → внутренние категории NiceTry. Используется и TS-слоем (src/lib/approute/category-map.ts, боевой режим), и скриптом scripts/sync-approute.mjs. Сопоставление идёт по ключевым словам в полях сервиса AppRoute (categoryName / subcategoryName / section / name) без учёта регистра. Первое совпадение по порядку массива keywords выигрывает.",
+  "psnRegions": ["US", "PL", "DE", "FR", "TR", "IN", "UK"],
+  "regionAliases": {
+    "GB": "UK",
+    "UNITED KINGDOM": "UK",
+    "UNITED STATES": "US",
+    "USA": "US",
+    "POLAND": "PL",
+    "GERMANY": "DE",
+    "FRANCE": "FR",
+    "TURKEY": "TR",
+    "TÜRKIYE": "TR",
+    "INDIA": "IN"
+  },
+  "categories": [
+    { "slug": "steam", "keywords": ["steam"] },
+    { "slug": "psn", "keywords": ["psn", "playstation", "ps network", "ps store"] },
+    { "slug": "roblox", "keywords": ["roblox", "robux"] },
+    { "slug": "rockstar", "keywords": ["rockstar", "shark card", "gta"] },
+    { "slug": "appstore", "keywords": ["app store", "appstore", "itunes", "apple"] },
+    { "slug": "google", "keywords": ["google play", "google", "play store"] },
+    { "slug": "wow-time-card", "keywords": ["wow", "world of warcraft", "time card", "game time"] },
+    { "slug": "blizzard", "keywords": ["battle.net", "battlenet", "blizzard"] },
+    { "slug": "minecraft", "keywords": ["minecraft"] },
+    { "slug": "pubg-mobile", "keywords": ["pubg", "uc ", "unknown cash"] },
+    { "slug": "valorant-ru", "keywords": ["valorant", "vp ", "valorant points"] }
+  ]
+}
