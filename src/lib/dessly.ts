@@ -1,25 +1,30 @@
 // Клиент Dessly API (поставщик отправки игр / гифтов в Steam).
-// Документация: https://desslyhub.readme.io/ (reference) + БОЕВАЯ ПРОВЕРКА живого сервера (Блок DSL-3).
+// Источник истины: dessly-openapi.json (официальная спека Desslyhub API v1, OpenAPI 3.1) —
+// получена от владельца и заменяет устаревший readme.io-reference (Блок DSL-5).
 //
-// ⚠️ ВАЖНО: публичная дока УСТАРЕЛА по части авторизации. Она утверждает, что ключ передаётся
-// заголовком `apikey: <key>`. Живой сервер https://desslyhub.com это ОТВЕРГАЕТ и требует
-// ПОДПИСАННЫЙ запрос (проверено последовательными 401):
-//   X-Api-Key:   <публичный ключ>           (32 hex-символа из .env)
-//   X-Timestamp: <unix-время>               (см. signRequest)
-//   X-Signature: <HMAC-подпись запроса>     (секрет + алгоритм НЕ задокументированы публично)
+// АВТОРИЗАЦИЯ (подписанные запросы; подтверждено спекой + живым сервером, Блок DSL-3/DSL-5):
+//   X-Api-Key:   <merchant API key>          (DESSLY_API_KEY, 32 hex-символа)
+//   X-Timestamp: <unix-время в секундах>     (строкой; должно быть в пределах ±5 мин серверного времени)
+//   X-Signature: HMAC-SHA256(secret, apiKey + timestamp + body) — lowercase hex; пустое тело = ""
+//                (secret = DESSLY_API_SECRET; в запрос НЕ передаётся). См. signRequest.
+//   NB: в прозе Introduction опечатка «X-Ap-Key» — реальное имя заголовка во всех методах `X-Api-Key`.
 //
-// РЕАЛЬНЫЙ контракт эндпоинтов (сверено по reference, совпало):
-//   База:    https://desslyhub.com
-//   GET  /api/v1/service/steamgift/games                 — список игр { games: [{ name, appid }] }
-//   GET  /api/v1/service/steamgift/games/{app_id}        — издания/регионы игры
-//        → { game: [{ edition, package_id, regions_info: [{ region, discount, price, price_original }] }] }
-//   POST /api/v1/service/steamgift/sendgames             — покупка/отправка гифта
-//        тело: { invite_url, package_id, region, reference? } → { transaction_id, status, error_code }
-//   GET  /api/v1/merchants/transaction/{id}/status       — статус транзакции { status } | { error_code }
-//   GET  /api/v1/merchants/balance                       — баланс мерчанта { balance: "1.0000" }
+// РЕАЛЬНЫЙ контракт эндпоинтов (dessly-openapi.json):
+//   База:    https://desslyhub.com  (/api/v1)
+//   GET  /api/v1/balance                              — баланс { balance, overdraft, reserve, available_balance } (строки, $)
+//   GET  /api/v1/catalog/steam-gift/games             — список игр { games: [{ app_id, name }] }
+//   GET  /api/v1/catalog/steam-gift/games/{app_id}    — издания/регионы игры
+//        → { game: [{ edition, package_id, regions_info: [{ region, discount, price, price_original }] }] } (цены строками)
+//   POST /api/v1/orders                               — создание заказа (выдача через единый orders-флоу)
+//        тело: { payment_method:"balance", service_type:"steam_gift",
+//                service_params:{ invite_url, package_id, region }, reference? } → { order_id, status }
+//   GET  /api/v1/orders/{order_id}                    — статус заказа
+//        → { order_status, error_code?, service_result:{ bot_id, invite_url, pkg_id, region }, ... }
 //
-// Dessly отдаёт ошибки В ТЕЛЕ как { error_code: -N } даже при HTTP 200 (см. liveRequest).
-// Статусы: success | pending | failed | cancelled (failed/cancelled → деньги возвращены поставщиком).
+// Статусы заказа: pending | paid | executing | completed | failed | canceled.
+//   completed → выдан (sent); pending/paid/executing → в обработке (pending); failed/canceled → провал.
+// Провал гифта приходит как error_code (СТРОКОЙ, напр. "-55") в теле заказа — не как HTTP-ошибка.
+// HTTP-ошибки — RFC7807 application/problem+json { error_code:int, detail, title, status }.
 //
 // Режимы: боевой — только если заданы И DESSLY_API_KEY, И DESSLY_API_SECRET (нужен для подписи);
 // иначе мок из catalog.json. Это fail-safe: с одним ключом (без секрета) клиент НЕ бьёт боевыми
@@ -181,16 +186,16 @@ export class DesslyError extends Error {
 // ============================================================
 
 /**
- * Подпись запроса Dessly (X-Signature).
+ * Подпись запроса Dessly (X-Signature) — по официальной спеке dessly-openapi.json (Блок DSL-5):
  *
- * ⚠️ КАНОНИЧЕСКАЯ СТРОКА НЕ ПОДТВЕРЖДЕНА: публичная дока не описывает схему подписи, а перебор
- * стандартных вариантов против живого сервера дал «invalid signature» (Блок DSL-3) — почти
- * наверняка нужен ОТДЕЛЬНЫЙ секрет подписи + точный формат от Dessly. Это ЕДИНСТВЕННОЕ место,
- * которое нужно поправить, когда владелец предоставит спецификацию (см. WORKLOG DSL-3).
- * Текущая формула — наиболее распространённый best-guess: HMAC-SHA256(secret, METHOD+path+timestamp+body) → hex.
+ *   signature = HMAC-SHA256(secret, apiKey + timestamp + body)  → lowercase hex
+ *
+ * Каноническая строка — простая конкатенация (БЕЗ метода/пути/разделителей): публичный apiKey
+ * (X-Api-Key), затем X-Timestamp (unix-сек строкой), затем сырое тело запроса. Для GET (пустое
+ * тело) используется пустая строка. Секрет (DESSLY_API_SECRET) в запрос не передаётся.
  */
-function signRequest(method: string, path: string, timestamp: string, body: string): string {
-  const canonical = `${method.toUpperCase()}${path}${timestamp}${body}`
+function signRequest(timestamp: string, body: string): string {
+  const canonical = `${apiKey()}${timestamp}${body}`
   return createHmac('sha256', apiSecret()).update(canonical).digest('hex')
 }
 
@@ -205,12 +210,12 @@ async function liveRequest<T>(
     headers['Content-Type'] = 'application/json'
     body = JSON.stringify(opts.body)
   }
-  // Подписанная авторизация Dessly: X-Api-Key + X-Timestamp + X-Signature (имена подтверждены
-  // ответами живого сервера; см. WORKLOG DSL-3). НЕ заголовок `apikey` и НЕ Authorization: Bearer.
+  // Подписанная авторизация Dessly: X-Api-Key + X-Timestamp + X-Signature (dessly-openapi.json,
+  // подтверждено живым сервером; см. WORKLOG DSL-3/DSL-5). Подпись = HMAC-SHA256(secret, apiKey+ts+body).
   const timestamp = Math.floor(Date.now() / 1000).toString()
   headers['X-Api-Key'] = apiKey()
   headers['X-Timestamp'] = timestamp
-  headers['X-Signature'] = signRequest(method, path, timestamp, body)
+  headers['X-Signature'] = signRequest(timestamp, body)
 
   let res: Response
   try {
@@ -252,12 +257,12 @@ function toNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0
 }
 
-/** Маппинг строкового статуса Dessly → наш статус выдачи. */
+/** Маппинг статуса заказа Dessly (order_status) → наш статус выдачи. */
 function mapStatus(s: unknown): DesslyGiftStatus {
   const v = String(s ?? '').toLowerCase()
-  if (v === 'success') return 'sent'
-  if (v === 'pending') return 'pending'
-  // failed, cancelled, неизвестное → провал (деньги у поставщика возвращены).
+  if (v === 'completed') return 'sent'
+  if (v === 'pending' || v === 'paid' || v === 'executing') return 'pending'
+  // failed, canceled, неизвестное → провал (деньги у поставщика возвращены).
   return 'failed'
 }
 
@@ -286,17 +291,17 @@ function hashToAppid(id: string): number {
 // Публичные методы
 // ============================================================
 
-/** Список игр, доступных для отправки гифтом. GET /api/v1/service/steamgift/games */
+/** Список игр, доступных для отправки гифтом. GET /api/v1/catalog/steam-gift/games */
 export async function listGames(): Promise<DesslyGame[]> {
   if (isLiveMode()) {
     const data = await liveRequest<{ games?: Array<Record<string, unknown>> }>(
-      '/api/v1/service/steamgift/games'
+      '/api/v1/catalog/steam-gift/games'
     )
     const games = Array.isArray(data.games) ? data.games : []
     return games.map((g) => {
-      const appid = toNum(g.appid)
+      const appid = toNum(g.app_id)
       return {
-        id: String(appid || g.appid || ''),
+        id: String(appid || g.app_id || ''),
         name: String(g.name ?? ''),
         appid,
         // Боевой `games` цену не отдаёт — она зависит от региона/издания (см. getGame).
@@ -312,13 +317,13 @@ export async function listGames(): Promise<DesslyGame[]> {
 
 /**
  * Издания и региональные цены игры по app_id.
- * GET /api/v1/service/steamgift/games/{app_id}
+ * GET /api/v1/catalog/steam-gift/games/{app_id}
  * → { game: [{ edition, package_id, regions_info: [{ region, discount, price, price_original }] }] }
  */
 export async function getGame(appId: string | number): Promise<DesslyEdition[]> {
   if (isLiveMode()) {
     const data = await liveRequest<{ game?: Array<Record<string, unknown>> }>(
-      `/api/v1/service/steamgift/games/${encodeURIComponent(String(appId))}`
+      `/api/v1/catalog/steam-gift/games/${encodeURIComponent(String(appId))}`
     )
     const editions = Array.isArray(data.game) ? data.game : []
     return editions.map((e) => ({
@@ -378,31 +383,31 @@ export async function resolvePackage(
 }
 
 /**
- * Отправка игры гифтом. POST /api/v1/service/steamgift/sendgames
- * Тело: { invite_url, package_id, region, reference? }.
+ * Отправка игры гифтом через единый orders-флоу. POST /api/v1/orders
+ * Тело: { payment_method:"balance", service_type:"steam_gift",
+ *         service_params:{ invite_url, package_id, region }, reference? } → { order_id, status }.
+ * order_id используется как transactionId для последующего опроса getTransactionStatus.
  */
 export async function sendGift(req: DesslyGiftRequest): Promise<DesslyGiftResponse> {
   if (isLiveMode()) {
-    const data = await liveRequest<Record<string, unknown>>(
-      '/api/v1/service/steamgift/sendgames',
-      {
-        method: 'POST',
-        body: {
+    const data = await liveRequest<Record<string, unknown>>('/api/v1/orders', {
+      method: 'POST',
+      body: {
+        payment_method: 'balance',
+        service_type: 'steam_gift',
+        service_params: {
           invite_url: req.inviteUrl,
-          // OpenAPI Dessly типизирует package_id как string (даже при числовых значениях),
-          // а -4 «Incorrect request body» — реальный код ошибки → шлём строкой во избежание отказа.
+          // package_id в service_params типизирован спекой как string (хотя в каталоге — число).
           package_id: String(req.packageId),
           region: req.region,
-          ...(req.reference ? { reference: req.reference } : {}),
         },
-      }
-    )
+        // reference — внешний идентификатор для идемпотентности (дубликат → error_code -9).
+        ...(req.reference ? { reference: req.reference } : {}),
+      },
+    })
     return {
-      transactionId: String(data.transaction_id ?? ''),
+      transactionId: String(data.order_id ?? ''),
       status: mapStatus(data.status),
-      giftLink: (data.gift_link as string | undefined) ?? undefined,
-      message: data.message as string | undefined,
-      errorCode: typeof data.error_code === 'number' ? data.error_code : undefined,
     }
   }
   // Мок: гифт «отправлен».
@@ -415,27 +420,36 @@ export async function sendGift(req: DesslyGiftRequest): Promise<DesslyGiftRespon
 }
 
 /**
- * Статус транзакции. GET /api/v1/merchants/transaction/{transaction_id}/status
- * → { status } | { error_code }.
+ * Статус заказа (выдачи гифта). GET /api/v1/orders/{order_id}
+ * → { order_status, error_code?, service_result:{ bot_id, invite_url, pkg_id, region } }.
+ * order_status: pending|paid|executing|completed|failed|canceled. error_code приходит СТРОКОЙ
+ * (напр. "-55") при провале выдачи — конвертируем в число и человекочитаемое сообщение.
  */
 export async function getTransactionStatus(transactionId: string): Promise<DesslyGiftResponse> {
   if (isLiveMode()) {
     const data = await liveRequest<Record<string, unknown>>(
-      `/api/v1/merchants/transaction/${encodeURIComponent(transactionId)}/status`
+      `/api/v1/orders/${encodeURIComponent(transactionId)}`
     )
+    const ecRaw = data.error_code
+    const codeNum = ecRaw != null && ecRaw !== '' ? Number(ecRaw) : NaN
+    const code = Number.isFinite(codeNum) ? codeNum : undefined
     return {
       transactionId,
-      status: mapStatus(data.status),
-      message: data.message as string | undefined,
+      status: mapStatus(data.order_status),
+      message: code != null ? desslyErrorMessage(code) : (data.detail as string | undefined),
+      errorCode: code,
     }
   }
   return { transactionId, status: 'sent' }
 }
 
-/** Баланс мерчанта. GET /api/v1/merchants/balance → { balance: "1.0000" }. */
+/**
+ * Баланс мерчанта. GET /api/v1/balance
+ * → { balance, overdraft, reserve, available_balance } (строки, $). Берём текущий balance.
+ */
 export async function getMerchantBalance(): Promise<{ balance: number; currency: string }> {
   if (isLiveMode()) {
-    const data = await liveRequest<Record<string, unknown>>('/api/v1/merchants/balance')
+    const data = await liveRequest<Record<string, unknown>>('/api/v1/balance')
     return { balance: toNum(data.balance), currency: 'USD' }
   }
   return { balance: 1000, currency: 'USD' }

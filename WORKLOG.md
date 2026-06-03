@@ -1228,3 +1228,64 @@ API-ключом как HMAC-секретом — но по НЕИЗВЕСТНО
 - Коммиты сессии: 70b2db8 (DSL-1/2), e8138cb (DSL-3 hardening).
 - Статус: ⏳ **НЕ ЗАВЕРШЕНО / ЗАБЛОКИРОВАНО**. Возобновить, когда владелец пришлёт формулу подписи
   ИЛИ URL виджета. Мок-режим — рабочий, регрессия зелёная.
+
+## 2026-06-03 | Блок DSL-5 — ✅ РАЗБЛОКИРОВАНО: получена спека Dessly, подпись подтверждена вживую
+
+> Блокер DSL-3/DSL-4 СНЯТ. Владелец предоставил официальную OpenAPI-спеку (`dessly-openapi.json`)
+> и секрет подписи. Боевой режим Dessly реализован по реальному контракту и проверен на живом
+> сервере read-only запросами (баланс + каталог). Реальный гифт НЕ отправлялся (это трата денег).
+
+### Что нашлось (разгадка DSL-4)
+- `dessly-openapi.json` (OpenAPI 3.1, Desslyhub API v1) — авторитетный источник, заменяет устаревший
+  readme.io. В нём ЯВНО описана схема подписи, которую раньше не удавалось угадать:
+  > **X-Signature = HMAC-SHA256(secret, apiKey + timestamp + body)** → lowercase hex; пустое тело = `""`.
+  Каноническая строка — простая конкатенация `apiKey + timestamp + body` (БЕЗ метода/пути/разделителей).
+- **Секрет подписи существует отдельно** (уточнение из DSL-4 «секрет = сам ключ» было неверным):
+  `DESSLY_API_SECRET` = 32-hex, уже лежит в `.env.local` рядом с `DESSLY_API_KEY`. В запрос не уходит.
+- Имя заголовка — `X-Api-Key` (в прозе Introduction опечатка «X-Ap-Key»; во всех методах — `X-Api-Key`).
+- **Модель API оказалась иной**, чем угадывалось в DSL-1/2 по readme.io. Реальные эндпоинты:
+  | Раньше в коде (догадка) | Реальный эндпоинт (спека) |
+  |---|---|
+  | `GET /api/v1/merchants/balance` | `GET /api/v1/balance` → `{balance,overdraft,reserve,available_balance}` (строки $) |
+  | `GET /api/v1/service/steamgift/games` | `GET /api/v1/catalog/steam-gift/games` → `{games:[{app_id,name}]}` |
+  | `GET /api/v1/service/steamgift/games/{id}` | `GET /api/v1/catalog/steam-gift/games/{app_id}` → `{game:[{edition,package_id,regions_info}]}` |
+  | `POST /api/v1/service/steamgift/sendgames` | `POST /api/v1/orders` (единый orders-флоу) |
+  | `GET /api/v1/merchants/transaction/{id}/status` | `GET /api/v1/orders/{order_id}` |
+- Выдача гифта — через **единый orders-флоу**: `POST /api/v1/orders` с
+  `{payment_method:"balance", service_type:"steam_gift", service_params:{invite_url,package_id,region}, reference?}`
+  → `{order_id, status}`; затем опрос `GET /api/v1/orders/{order_id}`. order_status:
+  `pending|paid|executing|completed|failed|canceled`. Провал выдачи приходит как `error_code`
+  СТРОКОЙ (напр. `"-55"`) в теле заказа, а не как HTTP-ошибка.
+
+### Боевая проверка на живом сервере (read-only, без трат/гифтов)
+- `GET /api/v1/balance` → **HTTP 200** `{"balance":"209.8620","available_balance":"209.8620","overdraft":"0","reserve":"0"}`.
+  → подпись `HMAC-SHA256(secret, apiKey+ts+"")` ПРИНЯТА. Баланс мерчанта ≈ **$209.86**.
+- `GET /api/v1/catalog/steam-gift/games` → **HTTP 200**, 3223 игры, форма `{name, app_id}` совпала.
+- `GET /api/v1/catalog/steam-gift/games/{app_id}` → **HTTP 200**, `{game:[{edition, regions_info:[{region,
+  discount, price, price_original}]}]}` совпала с парсером.
+- Write-путь (`POST /api/v1/orders`) НЕ дёргался боевым: один реальный гифт = реальные деньги/выдача.
+  Подпись доказана теми же заголовками на read-эндпоинтах; тело POST подписывается той же формулой.
+
+### Что сделано в коде
+- `src/lib/dessly.ts`:
+  - `signRequest(timestamp, body)` — канон `apiKey + timestamp + body`, HMAC-SHA256 → hex (по спеке).
+  - все эндпоинты переведены на реальные пути; `listGames` читает `app_id`; `sendGift` шлёт
+    orders-тело; `getTransactionStatus` читает `order_status` + строковый `error_code`;
+    `getMerchantBalance` → `/api/v1/balance`.
+  - `mapStatus` под реальные статусы заказа (`completed→sent`, `pending/paid/executing→pending`,
+    `failed/canceled→failed`). Публичные сигнатуры функций сохранены → поток выдачи (orders/create) не тронут.
+- `.env.example`: примечание к `DESSLY_API_SECRET` обновлено формулой подписи (уже не «алгоритм неизвестен»).
+- `tests/integration/dessly-live.test.ts`: переписан под реальные пути/тела; добавлена проверка
+  ТОЧНОГО значения `X-Signature` (воспроизводим формулу из спеки, а не только формат).
+
+### Регрессия
+- Полный сьют: **307/307 зелёных**. `tsc --noEmit` — чисто. Боевые read-проверки — 200 OK.
+
+### Остаётся (нетронутый минимум для полного боевого гифта)
+- Один контрольный реальный гифт (`POST /api/v1/orders`, малый пакет) с реальным invite — чтобы
+  подтвердить write-путь end-to-end. Это трата средств → выполнять осознанно, по решению владельца.
+- `dessly-openapi.json` пока не закоммичен (был untracked) — добавить в репозиторий как источник истины.
+
+- Файлы: src/lib/dessly.ts, .env.example, tests/integration/dessly-live.test.ts, dessly-openapi.json, WORKLOG.md
+- Статус: ✅ **БОЕВОЙ РЕЖИМ РАЗБЛОКИРОВАН И ПРОВЕРЕН (read-path live 200 OK)**. Write-path —
+  контракт по спеке + доказанная подпись; финальный контрольный гифт — за владельцем.

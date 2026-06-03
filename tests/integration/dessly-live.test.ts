@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { createHmac } from 'crypto'
 import {
   listGames,
   getGame,
@@ -13,12 +14,16 @@ import {
 } from '@/lib/dessly'
 
 // Боевой режим Dessly через СТАБ global.fetch (реальная сеть не используется).
-// Проверяем РЕАЛЬНЫЙ контракт (Блок DSL-1, сверено по desslyhub.readme.io):
-//   - база https://desslyhub.com, авторизация заголовком apikey (НЕ Bearer);
-//   - эндпоинты /api/v1/service/steamgift/* ;
-//   - тело sendGift { invite_url, package_id, region, reference };
-//   - error_code в теле даже при HTTP 200 → DesslyError;
-//   - статус /api/v1/merchants/transaction/{id}/status; баланс GET /api/v1/merchants/balance.
+// Проверяем РЕАЛЬНЫЙ контракт по dessly-openapi.json (Блок DSL-5):
+//   - база https://desslyhub.com, подписанная авторизация X-Api-Key + X-Timestamp + X-Signature;
+//   - подпись X-Signature = HMAC-SHA256(secret, apiKey + timestamp + body), lowercase hex;
+//   - каталог /api/v1/catalog/steam-gift/games(/{app_id});
+//   - выдача через единый orders-флоу: POST /api/v1/orders (service_type=steam_gift),
+//     статус GET /api/v1/orders/{id}; баланс GET /api/v1/balance;
+//   - error_code (строкой) в заказе → DesslyGiftResponse.errorCode/ message.
+
+const KEY = 'test-dessly-key'
+const SECRET = 'test-dessly-secret'
 
 const orig = {
   mock: process.env.NICETRY_FORCE_SUPPLIER_MOCK,
@@ -29,8 +34,8 @@ const orig = {
 
 beforeEach(() => {
   process.env.NICETRY_FORCE_SUPPLIER_MOCK = '0' // снимаем форс-мок → боевой путь
-  process.env.DESSLY_API_KEY = 'test-dessly-key'
-  process.env.DESSLY_API_SECRET = 'test-dessly-secret' // боевой режим требует И ключ, И секрет (DSL-3)
+  process.env.DESSLY_API_KEY = KEY
+  process.env.DESSLY_API_SECRET = SECRET // боевой режим требует И ключ, И секрет (DSL-3/DSL-5)
   delete process.env.DESSLY_BASE_URL // дефолт https://desslyhub.com
 })
 
@@ -57,28 +62,46 @@ function stubFetch(jsonBody: unknown, ok = true, status = 200) {
   return fn
 }
 
+/** Эталонная подпись по спеке: HMAC-SHA256(secret, apiKey + timestamp + body) → lowercase hex. */
+function expectedSig(timestamp: string, body: string): string {
+  return createHmac('sha256', SECRET).update(`${KEY}${timestamp}${body}`).digest('hex')
+}
+
+/** Достаёт (headers, body) из первого вызова стаба fetch. */
+function callOf(fn: ReturnType<typeof stubFetch>) {
+  const [url, opts] = fn.mock.calls[0] as unknown as [string, any]
+  return { url, opts, headers: opts.headers as Record<string, string>, body: (opts.body as string) || '' }
+}
+
 describe('Dessly: боевой режим — реальный контракт (стаб fetch)', () => {
-  it('isLiveMode=true при заданном ключе и снятом форс-моке', () => {
+  it('isLiveMode=true при заданном ключе+секрете и снятом форс-моке', () => {
     expect(isLiveMode()).toBe(true)
   })
 
-  it('listGames: GET /api/v1/service/steamgift/games с заголовком apikey, нормализует { games }', async () => {
-    const fn = stubFetch({ games: [{ name: 'Cyberpunk 2077', appid: 1091500 }] })
+  it('подпись X-Signature точно совпадает с HMAC-SHA256(secret, apiKey+timestamp+body) для GET (пустое тело)', async () => {
+    const fn = stubFetch({ games: [] })
+    await listGames()
+    const { headers, body } = callOf(fn)
+    expect(body).toBe('') // GET — тело пустое
+    expect(headers['X-Api-Key']).toBe(KEY)
+    expect(headers['X-Timestamp']).toMatch(/^\d+$/)
+    // КЛЮЧЕВОЕ: значение подписи воспроизводится формулой из спеки (не просто формат).
+    expect(headers['X-Signature']).toBe(expectedSig(headers['X-Timestamp'], ''))
+    expect(headers['X-Signature']).toMatch(/^[0-9a-f]{64}$/)
+    expect(headers.apikey).toBeUndefined()
+    expect(headers.Authorization).toBeUndefined()
+  })
+
+  it('listGames: GET /api/v1/catalog/steam-gift/games, нормализует { games:[{app_id,name}] }', async () => {
+    const fn = stubFetch({ games: [{ name: 'Cyberpunk 2077', app_id: 1091500 }] })
     const games = await listGames()
     expect(games[0].id).toBe('1091500')
     expect(games[0].appid).toBe(1091500)
     expect(games[0].name).toBe('Cyberpunk 2077')
-    const [url, opts] = fn.mock.calls[0] as unknown as [string, any]
-    expect(url).toBe('https://desslyhub.com/api/v1/service/steamgift/games')
-    // Подписанная авторизация: X-Api-Key + X-Timestamp + X-Signature (НЕ apikey, НЕ Bearer).
-    expect(opts.headers['X-Api-Key']).toBe('test-dessly-key')
-    expect(opts.headers['X-Timestamp']).toMatch(/^\d+$/)
-    expect(opts.headers['X-Signature']).toMatch(/^[0-9a-f]{64}$/) // HMAC-SHA256 hex
-    expect(opts.headers.apikey).toBeUndefined()
-    expect(opts.headers.Authorization).toBeUndefined()
+    expect(callOf(fn).url).toBe('https://desslyhub.com/api/v1/catalog/steam-gift/games')
   })
 
-  it('getGame: GET /api/v1/service/steamgift/games/{app_id}, парсит editions + regions_info', async () => {
+  it('getGame: GET /api/v1/catalog/steam-gift/games/{app_id}, парсит editions + regions_info', async () => {
     const fn = stubFetch({
       game: [
         {
@@ -96,8 +119,7 @@ describe('Dessly: боевой режим — реальный контракт 
     expect(editions[0].edition).toBe('Standard')
     expect(editions[0].packageId).toBe(555)
     expect(editions[0].regions[0]).toEqual({ region: 'RU', price: 10, priceOriginal: 60, discount: 94 })
-    const [url] = fn.mock.calls[0] as unknown as [string, any]
-    expect(url).toBe('https://desslyhub.com/api/v1/service/steamgift/games/1091500')
+    expect(callOf(fn).url).toBe('https://desslyhub.com/api/v1/catalog/steam-gift/games/1091500')
   })
 
   it('resolvePackage: по app_id + регион → package_id и цена нужного региона', async () => {
@@ -127,86 +149,79 @@ describe('Dessly: боевой режим — реальный контракт 
     expect(await resolvePackage('1091500', 'ZZ')).toBeNull()
   })
 
-  it('sendGift: POST /api/v1/service/steamgift/sendgames, тело { invite_url, package_id, region, reference }', async () => {
-    const fn = stubFetch({ transaction_id: 'tx1', status: 'pending', error_code: 0 })
+  it('sendGift: POST /api/v1/orders, тело steam_gift-заказа + корректная подпись над телом', async () => {
+    const fn = stubFetch({ order_id: 12345, status: 'executing' })
     const res = await sendGift({
       inviteUrl: 'https://s.team/p/abcd-1234',
       packageId: 555,
       region: 'RU',
       reference: 'ref-1',
     })
-    expect(res.transactionId).toBe('tx1')
+    // order_id → transactionId; executing → pending (опрос продолжится).
+    expect(res.transactionId).toBe('12345')
     expect(res.status).toBe('pending')
-    const [url, opts] = fn.mock.calls[0] as unknown as [string, any]
-    expect(url).toBe('https://desslyhub.com/api/v1/service/steamgift/sendgames')
+
+    const { url, opts, headers, body } = callOf(fn)
+    expect(url).toBe('https://desslyhub.com/api/v1/orders')
     expect(opts.method).toBe('POST')
-    expect(opts.headers['X-Api-Key']).toBe('test-dessly-key')
-    expect(opts.headers['X-Signature']).toMatch(/^[0-9a-f]{64}$/)
-    expect(opts.headers['Content-Type']).toBe('application/json')
-    const body = JSON.parse(opts.body)
-    expect(body).toEqual({
-      invite_url: 'https://s.team/p/abcd-1234',
-      // package_id уходит строкой — Dessly OpenAPI типизирует поле как string.
-      package_id: '555',
-      region: 'RU',
+    expect(headers['Content-Type']).toBe('application/json')
+    // Подпись считается над РЕАЛЬНЫМ телом POST.
+    expect(headers['X-Signature']).toBe(expectedSig(headers['X-Timestamp'], body))
+    expect(JSON.parse(body)).toEqual({
+      payment_method: 'balance',
+      service_type: 'steam_gift',
+      service_params: {
+        invite_url: 'https://s.team/p/abcd-1234',
+        package_id: '555', // service_params.package_id — строкой (спека)
+        region: 'RU',
+      },
       reference: 'ref-1',
     })
-    // НЕ должно быть старых полей.
-    expect(body.app_id).toBeUndefined()
-    expect(body.recipient).toBeUndefined()
-    expect(body.sub_id).toBeUndefined()
+    // НЕ должно быть старой плоской формы.
+    expect(JSON.parse(body).invite_url).toBeUndefined()
+    expect(JSON.parse(body).package_id).toBeUndefined()
   })
 
-  it('sendGift: status "success" → sent', async () => {
-    stubFetch({ transaction_id: 'tx2', status: 'success', error_code: 0 })
+  it('sendGift: status "completed" при создании → sent (без опроса)', async () => {
+    stubFetch({ order_id: 1, status: 'completed' })
     const res = await sendGift({ inviteUrl: 'https://s.team/p/x', packageId: 1, region: 'RU' })
     expect(res.status).toBe('sent')
   })
 
-  it('error_code < 0 в ТЕЛЕ при HTTP 200 → DesslyError с кодом и сообщением', async () => {
-    // Реальный кейс: провал отдаётся error_code, даже если status="success".
-    stubFetch({ status: 'success', error_code: -55 })
-    try {
-      await sendGift({ inviteUrl: 'https://s.team/p/x', packageId: 1, region: 'RU' })
-      throw new Error('should have thrown')
-    } catch (e) {
-      expect(e).toBeInstanceOf(DesslyError)
-      expect((e as DesslyError).code).toBe(-55)
-      expect((e as DesslyError).message).toBe('У получателя уже есть эта игра')
-    }
-  })
-
-  it('getTransactionStatus: GET /api/v1/merchants/transaction/{id}/status; failed → failed', async () => {
-    const fn = stubFetch({ status: 'failed' })
-    const res = await getTransactionStatus('tx1')
+  it('getTransactionStatus: GET /api/v1/orders/{id}; failed + error_code "-55" → failed + код/сообщение', async () => {
+    const fn = stubFetch({ order_id: 12345, order_status: 'failed', error_code: '-55' })
+    const res = await getTransactionStatus('12345')
     expect(res.status).toBe('failed')
-    const [url] = fn.mock.calls[0] as unknown as [string, any]
-    expect(url).toBe('https://desslyhub.com/api/v1/merchants/transaction/tx1/status')
+    expect(res.errorCode).toBe(-55)
+    expect(res.message).toBe('У получателя уже есть эта игра')
+    expect(callOf(fn).url).toBe('https://desslyhub.com/api/v1/orders/12345')
   })
 
-  it('getTransactionStatus: cancelled → failed (деньги возвращены поставщиком)', async () => {
-    stubFetch({ status: 'cancelled' })
-    const res = await getTransactionStatus('tx9')
-    expect(res.status).toBe('failed')
+  it('getTransactionStatus: completed → sent; canceled → failed', async () => {
+    stubFetch({ order_id: 1, order_status: 'completed' })
+    expect((await getTransactionStatus('1')).status).toBe('sent')
+    stubFetch({ order_id: 2, order_status: 'canceled' })
+    expect((await getTransactionStatus('2')).status).toBe('failed')
   })
 
-  it('getMerchantBalance: GET /api/v1/merchants/balance, balance-строка → число', async () => {
-    const fn = stubFetch({ balance: '1.0000' })
+  it('getMerchantBalance: GET /api/v1/balance, balance-строка → число', async () => {
+    const fn = stubFetch({ balance: '1.5000', overdraft: '0', reserve: '0', available_balance: '1.5000' })
     const bal = await getMerchantBalance()
-    expect(bal.balance).toBe(1)
-    const [url, opts] = fn.mock.calls[0] as unknown as [string, any]
-    expect(url).toBe('https://desslyhub.com/api/v1/merchants/balance')
+    expect(bal.balance).toBe(1.5)
+    expect(bal.currency).toBe('USD')
+    const { url, opts } = callOf(fn)
+    expect(url).toBe('https://desslyhub.com/api/v1/balance')
     expect(opts.method).toBe('GET')
   })
 
-  it('HTTP-ошибка с error_code в теле → DesslyError несёт код', async () => {
-    stubFetch({ error_code: -5 }, false, 403)
+  it('HTTP-ошибка (problem+json) с error_code в теле → DesslyError несёт код и статус', async () => {
+    stubFetch({ error_code: -3, title: 'Forbidden', status: 403 }, false, 403)
     try {
       await listGames()
       throw new Error('should have thrown')
     } catch (e) {
       expect(e).toBeInstanceOf(DesslyError)
-      expect((e as DesslyError).code).toBe(-5)
+      expect((e as DesslyError).code).toBe(-3)
       expect((e as DesslyError).status).toBe(403)
     }
   })
@@ -215,8 +230,7 @@ describe('Dessly: боевой режим — реальный контракт 
     process.env.DESSLY_BASE_URL = 'https://stage.desslyhub.com'
     const fn = stubFetch({ games: [] })
     await listGames()
-    const [url] = fn.mock.calls[0] as unknown as [string, any]
-    expect(url).toBe('https://stage.desslyhub.com/api/v1/service/steamgift/games')
+    expect(callOf(fn).url).toBe('https://stage.desslyhub.com/api/v1/catalog/steam-gift/games')
   })
 })
 

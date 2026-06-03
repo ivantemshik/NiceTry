@@ -23,6 +23,7 @@ import { PATCH as profilePATCH } from '@/app/api/user/profile/route'
 import { GET as adminCategoriesGET } from '@/app/api/admin/categories/route'
 import { PATCH as adminCategoryPATCH } from '@/app/api/admin/categories/[id]/route'
 import { POST as adminSyncApproutePOST } from '@/app/api/admin/sync-approute/route'
+import { POST as adminSyncDesslyPOST } from '@/app/api/admin/sync-dessly/route'
 
 function jsonReq(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/orders/create', {
@@ -283,6 +284,38 @@ describe('POST /api/admin/sync-approute — гард администратор�
     expect(body.success).toBe(true)
     expect(body.supplier).toBe('approute')
     expect(body.total).toBeGreaterThan(0)
+  })
+})
+
+describe('POST /api/admin/sync-dessly — гард администратора + синхронизация', () => {
+  it('401 без авторизации', async () => {
+    state.session = makeSessionClient({ user: null })
+    state.admin = makeAdminClient({})
+    const res = await adminSyncDesslyPOST()
+    expect(res.status).toBe(401)
+  })
+
+  it('403 для не-админа', async () => {
+    state.session = makeSessionClient({ user: { id: 'u1' } })
+    state.admin = makeAdminClient({ tables: { users: { data: { is_admin: false } } } })
+    const res = await adminSyncDesslyPOST()
+    expect(res.status).toBe(403)
+  })
+
+  it('200 для админа: синхронизация отрабатывает (success:true, supplier=dessly)', async () => {
+    state.session = makeSessionClient({ user: { id: 'admin1' } })
+    state.admin = makeAdminClient({
+      tables: {
+        users: { data: { is_admin: true } },
+        categories: { data: { id: 'c1' } },
+        products: { data: null },
+      },
+    })
+    const res = await adminSyncDesslyPOST()
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.supplier).toBe('dessly')
   })
 })
 

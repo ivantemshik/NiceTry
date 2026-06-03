@@ -1,0 +1,2769 @@
+{
+  "components": {
+    "schemas": {
+      "BalanceResponseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "available_balance": {
+            "description": "Available balance (balance + overdraft - reserve) in dollars",
+            "type": "string"
+          },
+          "balance": {
+            "description": "Current balance in dollars",
+            "type": "string"
+          },
+          "overdraft": {
+            "description": "Overdraft limit in dollars",
+            "type": "string"
+          },
+          "reserve": {
+            "description": "Reserved amount in dollars",
+            "type": "string"
+          }
+        },
+        "required": [
+          "balance",
+          "overdraft",
+          "reserve",
+          "available_balance"
+        ],
+        "type": "object"
+      },
+      "CheckSteamUsernameResponseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "can_refill": {
+            "description": "True if the Steam account can receive a top-up (login is recognized and allowed).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "can_refill"
+        ],
+        "type": "object"
+      },
+      "CreateOrderBody": {
+        "additionalProperties": false,
+        "properties": {
+          "payment_method": {
+            "description": "Payment method: balance|paylink_qr",
+            "enum": [
+              "balance",
+              "paylink_qr"
+            ],
+            "type": "string"
+          },
+          "payment_params": {
+            "description": "Payment parameters (required for paylink_qr).",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PaylinkQRPaymentParams"
+              },
+              {
+                "$ref": "#/components/schemas/EmptyPaymentParams"
+              }
+            ]
+          },
+          "reference": {
+            "description": "External order reference for idempotency",
+            "maxLength": 255,
+            "type": "string"
+          },
+          "service_params": {
+            "description": "Service-specific parameters as JSON.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SteamRefillServiceParams"
+              },
+              {
+                "$ref": "#/components/schemas/SteamGiftServiceParams"
+              },
+              {
+                "$ref": "#/components/schemas/VoucherServiceParams"
+              },
+              {
+                "$ref": "#/components/schemas/MobileRefillServiceParams"
+              },
+              {
+                "$ref": "#/components/schemas/EsimServiceParams"
+              }
+            ]
+          },
+          "service_type": {
+            "description": "Service type: steam_refill|steam_gift|voucher|mobile_refill|esim",
+            "enum": [
+              "steam_refill",
+              "steam_gift",
+              "voucher",
+              "mobile_refill",
+              "esim"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "payment_method",
+          "service_type",
+          "service_params"
+        ],
+        "type": "object"
+      },
+      "CreateOrderResponseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "order_id": {
+            "description": "Order ID",
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "description": "Order status: pending|paid|executing|completed|failed|canceled",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "EmptyPaymentParams": {
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "ErrorDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "location": {
+            "description": "Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'",
+            "type": "string"
+          },
+          "message": {
+            "description": "Error message text",
+            "type": "string"
+          },
+          "value": {
+            "description": "The value at the given location"
+          }
+        },
+        "type": "object"
+      },
+      "ErrorModel": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "A human-readable explanation specific to this occurrence of the problem.",
+            "examples": [
+              "Property foo is required but is missing."
+            ],
+            "type": "string"
+          },
+          "error_code": {
+            "description": "Project-specific error code.",
+            "examples": [
+              -1
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "errors": {
+            "description": "Optional list of individual error details",
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "instance": {
+            "description": "A URI reference that identifies the specific occurrence of the problem.",
+            "examples": [
+              "https://example.com/error-log/abc123"
+            ],
+            "format": "uri",
+            "type": "string"
+          },
+          "status": {
+            "description": "HTTP status code",
+            "examples": [
+              400
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "description": "A short, human-readable summary of the problem type. This value should not change between occurrences of the error.",
+            "examples": [
+              "Bad Request"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "default": "about:blank",
+            "description": "A URI reference to human-readable documentation for the error.",
+            "examples": [
+              "https://example.com/errors/example"
+            ],
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "EsimServiceParams": {
+        "additionalProperties": false,
+        "properties": {
+          "product_id": {
+            "description": "Product ID from GET /api/v1/catalog/esim/products/{variant_id}",
+            "examples": [
+              "123456"
+            ],
+            "type": "string"
+          },
+          "variant_id": {
+            "description": "Variant ID from GET /api/v1/catalog/esim/products",
+            "examples": [
+              "123456"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "variant_id"
+        ],
+        "type": "object"
+      },
+      "EsimServiceResult": {
+        "additionalProperties": false,
+        "properties": {
+          "android_universal_link": {
+            "description": "Android universal link",
+            "examples": [
+              "https://www.android.com/android-pay"
+            ],
+            "type": "string"
+          },
+          "can_renew": {
+            "description": "Whether eSIM can be recharged with new packages",
+            "examples": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "created_at": {
+            "description": "Created at",
+            "examples": [
+              "2021-01-01T00:00:00Z"
+            ],
+            "format": "date-time",
+            "type": "string"
+          },
+          "iccid": {
+            "description": "The ICCID is a unique 19- or 20-digit serial number for your SIM card that serves as its international identifier",
+            "examples": [
+              "12345678901234567890"
+            ],
+            "type": "string"
+          },
+          "last_bundle": {
+            "description": "Name of the last activated bundle",
+            "examples": [
+              "12345678901234567890"
+            ],
+            "type": "string"
+          },
+          "matching_id": {
+            "description": "Matching ID",
+            "examples": [
+              "12345678901234567890"
+            ],
+            "type": "string"
+          },
+          "qr_code_text": {
+            "description": "QR code presented in text format",
+            "examples": [
+              "12345678901234567890"
+            ],
+            "type": "string"
+          },
+          "smdp_address": {
+            "description": "An SMDP is a special URL used to activate an eSIM and securely download a mobile carrier profile to the device",
+            "examples": [
+              "12345678901234567890"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "description": "Status",
+            "examples": [
+              "released"
+            ],
+            "type": "string"
+          },
+          "universal_link": {
+            "description": "Universal link for eSIM installation (alternative to QR)",
+            "examples": [
+              "https://esim.me/activate/abc123"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "iccid",
+          "qr_code_text",
+          "smdp_address",
+          "matching_id",
+          "created_at",
+          "status"
+        ],
+        "type": "object"
+      },
+      "GetAllExchangeRatesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "exchange_rates": {
+            "additionalProperties": {
+              "format": "double",
+              "type": "number"
+            },
+            "description": "Map currency_id (string) -> rate",
+            "type": "object"
+          }
+        },
+        "required": [
+          "exchange_rates"
+        ],
+        "type": "object"
+      },
+      "GetEsimProductByIDResponseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProductDetailsDataDTO",
+            "description": "Esim variant details."
+          },
+          "success": {
+            "description": "True if the product is available to your merchant account.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetEsimProductListResponseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "next_cursor": {
+            "description": "Next cursor for pagination",
+            "examples": [
+              "1234567890"
+            ],
+            "type": "string"
+          },
+          "prev_cursor": {
+            "description": "Previous cursor for pagination",
+            "examples": [
+              "1234567890"
+            ],
+            "type": "string"
+          },
+          "variants": {
+            "description": "Esim product variants available to your merchant account.",
+            "items": {
+              "$ref": "#/components/schemas/VariantData"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "next_cursor",
+          "prev_cursor",
+          "variants"
+        ],
+        "type": "object"
+      },
+      "GetExchangeRateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "exchange_rate": {
+            "description": "Exchange rate value",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "exchange_rate"
+        ],
+        "type": "object"
+      },
+      "GetSteamGiftGameResponseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "game": {
+            "description": "Editions and packages available for this Steam app; each item includes regional pricing.",
+            "items": {
+              "$ref": "#/components/schemas/SteamGiftEditionDTO"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "game"
+        ],
+        "type": "object"
+      },
+      "ListMobileGamesResponseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "games": {
+            "description": "Games available for mobile top-up — use the same string in GET game details.",
+            "items": {
+              "$ref": "#/components/schemas/MobileGameDTO"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "games"
+        ],
+        "type": "object"
+      },
+      "ListOrdersResponseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "List of orders",
+            "items": {
+              "$ref": "#/components/schemas/OrderDetailsDTO"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "limit": {
+            "description": "Requested page size",
+            "format": "int32",
+            "type": "integer"
+          },
+          "offset": {
+            "description": "Current offset",
+            "format": "int32",
+            "type": "integer"
+          },
+          "total": {
+            "description": "Total number of orders",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "limit",
+          "offset",
+          "items"
+        ],
+        "type": "object"
+      },
+      "ListSteamGiftGamesResponseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "games": {
+            "description": "Games available for Steam gifting; use app_id in GET /api/v1/catalog/steam-gift/games/{app_id} for editions and prices.",
+            "items": {
+              "$ref": "#/components/schemas/SteamGiftGameDTO"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "games"
+        ],
+        "type": "object"
+      },
+      "ListVouchersResponseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "products": {
+            "description": "All voucher products available to your merchant account (packed product ids).",
+            "items": {
+              "$ref": "#/components/schemas/VoucherProductDTO"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "products"
+        ],
+        "type": "object"
+      },
+      "MobileGameDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Packed game id; pass as game_id path in GET /api/v1/catalog/mobile-refill/games/{game_id}.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Display name of the game.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "id"
+        ],
+        "type": "object"
+      },
+      "MobileGameDetailsDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Dynamic form fields (keys and labels) the player must fill; keys go into service_params.fields in POST /api/v1/orders.",
+            "type": "object"
+          },
+          "id": {
+            "description": "Packed game id (same encoding as in the games list).",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Game title.",
+            "type": "string"
+          },
+          "positions": {
+            "description": "Top-up amounts or packages; each id is packed and used as position in the order.",
+            "items": {
+              "$ref": "#/components/schemas/MobilePositionDTO"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "servers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Optional server or realm choices keyed by provider-specific identifiers.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "positions",
+          "id"
+        ],
+        "type": "object"
+      },
+      "MobilePositionDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Packed position id — use as position (integer) in POST /api/v1/orders service_params for mobile_refill.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Denomination or package label (e.g. amount + currency).",
+            "type": "string"
+          },
+          "price": {
+            "description": "Final price string for merchant for this position.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "price",
+          "id"
+        ],
+        "type": "object"
+      },
+      "MobileRefillServiceParams": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "additionalProperties": true,
+            "description": "Provider-specific fields from mobile game details",
+            "type": "object"
+          },
+          "position": {
+            "description": "Position ID from mobile game catalog",
+            "examples": [
+              1
+            ],
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fields",
+          "position"
+        ],
+        "type": "object"
+      },
+      "MobileRefillServiceResult": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "additionalProperties": {},
+            "description": "Provider-specific fields from mobile game details",
+            "type": "object"
+          },
+          "position": {
+            "description": "Position ID from mobile game catalog",
+            "examples": [
+              2147483742
+            ],
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fields",
+          "position"
+        ],
+        "type": "object"
+      },
+      "OrderDetailsDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "commission": {
+            "description": "Platform commission in dollars",
+            "type": "string"
+          },
+          "completed_at": {
+            "description": "Order completion timestamp",
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "Order creation timestamp",
+            "format": "date-time",
+            "type": "string"
+          },
+          "error_code": {
+            "description": "When the order is paid and service execution ends in failure, the normalized merchant API error_code (same catalog as HTTP errors). Omitted while the service is pending or on success.",
+            "examples": [
+              "-53"
+            ],
+            "type": "string"
+          },
+          "final_amount": {
+            "description": "Total amount charged from merchant balance in dollars",
+            "type": "string"
+          },
+          "order_id": {
+            "description": "Order ID",
+            "format": "int64",
+            "type": "integer"
+          },
+          "order_status": {
+            "description": "Order status: pending|paid|executing|completed|failed|canceled",
+            "type": "string"
+          },
+          "payment_method": {
+            "description": "Payment method: balance|paylink_qr",
+            "type": "string"
+          },
+          "payment_url": {
+            "description": "Payment URL or QR payload",
+            "type": "string"
+          },
+          "service_result": {
+            "description": "Service execution payload JSON.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SteamRefillServiceResult"
+              },
+              {
+                "$ref": "#/components/schemas/SteamGiftServiceResult"
+              },
+              {
+                "$ref": "#/components/schemas/VoucherServiceResult"
+              },
+              {
+                "$ref": "#/components/schemas/MobileRefillServiceResult"
+              },
+              {
+                "$ref": "#/components/schemas/EsimServiceResult"
+              }
+            ]
+          },
+          "service_type": {
+            "description": "Service type: steam_refill|steam_gift|voucher|mobile_refill|esim",
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "Last update timestamp",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id",
+          "order_status",
+          "commission",
+          "final_amount",
+          "created_at",
+          "updated_at",
+          "payment_method",
+          "service_type"
+        ],
+        "type": "object"
+      },
+      "PaylinkQRPaymentParams": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "description": "The amount in Russian kopecks that the user will be required to pay",
+            "examples": [
+              150000
+            ],
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "fail_url": {
+            "description": "The page to which the user is redirected if the payment fails for any reason",
+            "examples": [
+              "https://merchant.com/fail"
+            ],
+            "format": "uri",
+            "type": "string"
+          },
+          "success_url": {
+            "description": "The page to which the user is redirected after successfully paying for the service",
+            "examples": [
+              "https://merchant.com/ok"
+            ],
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "success_url",
+          "fail_url",
+          "amount"
+        ],
+        "type": "object"
+      },
+      "ProductDetailsDataDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "attributes": {
+            "$ref": "#/components/schemas/VariantAttributes",
+            "description": "Contains information about the package's geographic coverage area, the list of supported countries, and the type of eSIM package. The set of fields may vary depending on the value of geo_scope."
+          },
+          "description": {
+            "description": "For eSIM products, the description usually contains the coverage area and the included service type, such as data only or data with voice calls and SMS.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Packed esim variant id (same as id in list response); GET returns one variant with products.",
+            "type": "string"
+          },
+          "image": {
+            "description": "Esim variant image.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Esim variant name.",
+            "type": "string"
+          },
+          "products": {
+            "description": "Esim product variants available to your merchant account.",
+            "items": {
+              "$ref": "#/components/schemas/ProductDetailsVariantData"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "products",
+          "id",
+          "name",
+          "description",
+          "image",
+          "attributes"
+        ],
+        "type": "object"
+      },
+      "ProductDetailsVariantData": {
+        "additionalProperties": false,
+        "properties": {
+          "attributes": {
+            "additionalProperties": {},
+            "description": "Contains the technical and pricing details of the selected eSIM plan: data allowance, validity period, supported network types, renewal options, activation method, SMS/call availability, and speed limits. The set of fields may vary depending on the value of geo_scope.",
+            "type": "object"
+          },
+          "description": {
+            "description": "Esim product description.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Packed esim product id. Used for the product_id field in the create_order",
+            "type": "string"
+          },
+          "max_per_order": {
+            "description": "Maximum quantity per order",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Esim product name.",
+            "type": "string"
+          },
+          "price": {
+            "description": "Final price string for your merchant (after commission rules).",
+            "format": "double",
+            "type": "number"
+          },
+          "stock": {
+            "description": "Quantity in stock",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "stock",
+          "max_per_order",
+          "price",
+          "attributes"
+        ],
+        "type": "object"
+      },
+      "SteamGiftEditionDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "description": "Human-readable edition or package name.",
+            "type": "string"
+          },
+          "package_id": {
+            "description": "Steam store package id for this row; pass as string package_id in POST /api/v1/orders when service_type is steam_gift (JSON number here, string in the order body).",
+            "format": "int64",
+            "type": "integer"
+          },
+          "regions_info": {
+            "description": "Price rows per customer region for this package.",
+            "items": {
+              "$ref": "#/components/schemas/SteamGiftRegionInfoDTO"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "edition",
+          "regions_info",
+          "package_id"
+        ],
+        "type": "object"
+      },
+      "SteamGiftGameDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "description": "Steam Store app id (same as path app_id in Get Steam Gift game info).",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Display title of the game in the Steam catalog.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "app_id"
+        ],
+        "type": "object"
+      },
+      "SteamGiftRegionInfoDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "discount": {
+            "description": "Discount from the gift provider as a string (often \"0\" when there is no discount).",
+            "type": "string"
+          },
+          "price": {
+            "description": "Final catalog price for this region as a decimal string (e.g. USD), after merchant commission rules.",
+            "type": "string"
+          },
+          "price_original": {
+            "description": "Provider reference/list price as a decimal string in the same currency; often equals price, but may differ (e.g. list vs adjusted price per region).",
+            "type": "string"
+          },
+          "region": {
+            "description": "Steam pricing region code (usually two letters, e.g. RU, US, KZ); matches the region you send in POST /api/v1/orders for steam_gift.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "region",
+          "discount",
+          "price",
+          "price_original"
+        ],
+        "type": "object"
+      },
+      "SteamGiftServiceParams": {
+        "additionalProperties": false,
+        "properties": {
+          "invite_url": {
+            "description": "Steam invite URL",
+            "examples": [
+              "https://s.team/p/xxxx/yyyy"
+            ],
+            "format": "uri",
+            "type": "string"
+          },
+          "package_id": {
+            "description": "Steam package ID",
+            "examples": [
+              "123456"
+            ],
+            "type": "string"
+          },
+          "region": {
+            "description": "Gift region",
+            "examples": [
+              "RU"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "invite_url",
+          "package_id",
+          "region"
+        ],
+        "type": "object"
+      },
+      "SteamGiftServiceResult": {
+        "additionalProperties": false,
+        "properties": {
+          "bot_id": {
+            "description": "Bot ID used for gifting (available after successful processing)",
+            "examples": [
+              "123"
+            ],
+            "type": "string"
+          },
+          "invite_url": {
+            "description": "Invite URL",
+            "examples": [
+              "https://s.team/p/abc-123"
+            ],
+            "type": "string"
+          },
+          "pkg_id": {
+            "description": "Steam package ID",
+            "examples": [
+              "123456"
+            ],
+            "type": "string"
+          },
+          "region": {
+            "description": "Gift region",
+            "examples": [
+              "RU"
+            ],
+            "type": "string"
+          },
+          "steam_id": {
+            "description": "Recipient Steam ID (available after successful processing)",
+            "examples": [
+              "76561198000000000"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "pkg_id",
+          "region"
+        ],
+        "type": "object"
+      },
+      "SteamRefillServiceParams": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "description": "Top-up amount in USD",
+            "examples": [
+              10
+            ],
+            "format": "double",
+            "minimum": 0.01,
+            "type": "number"
+          },
+          "username": {
+            "description": "Steam login",
+            "examples": [
+              "Login"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "amount"
+        ],
+        "type": "object"
+      },
+      "SteamRefillServiceResult": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "description": "Top-up amount in USD",
+            "examples": [
+              10
+            ],
+            "format": "double",
+            "minimum": 0.01,
+            "type": "number"
+          },
+          "username": {
+            "description": "Steam login",
+            "examples": [
+              "Login"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "amount"
+        ],
+        "type": "object"
+      },
+      "TransactionResponseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "description": "Transaction amount",
+            "type": "string"
+          },
+          "attributes": {
+            "description": "Transaction attributes",
+            "type": "string"
+          },
+          "commission": {
+            "description": "Transaction commission",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "Transaction creation timestamp",
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "description": "Transaction description",
+            "type": "string"
+          },
+          "final_amount": {
+            "description": "Transaction final amount",
+            "type": "string"
+          },
+          "reference": {
+            "description": "Transaction reference",
+            "type": "string"
+          },
+          "status": {
+            "description": "Transaction status",
+            "type": "string"
+          },
+          "transaction_id": {
+            "description": "Transaction ID",
+            "type": "string"
+          },
+          "type": {
+            "description": "Transaction type",
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "Transaction update timestamp",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transaction_id",
+          "status",
+          "attributes",
+          "amount",
+          "commission",
+          "final_amount",
+          "type",
+          "created_at",
+          "updated_at",
+          "description"
+        ],
+        "type": "object"
+      },
+      "TransactionsResponseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "description": "Current number of transactions",
+            "format": "int64",
+            "type": "integer"
+          },
+          "transactions": {
+            "description": "Transactions",
+            "items": {
+              "$ref": "#/components/schemas/TransactionResponseDTO"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "transactions",
+          "count"
+        ],
+        "type": "object"
+      },
+      "VariantAttributes": {
+        "additionalProperties": false,
+        "properties": {
+          "continent": {
+            "description": "Continent or region label from the provider, if any.",
+            "type": "string"
+          },
+          "country": {
+            "description": "Country or region label from the provider, if any.",
+            "type": "string"
+          },
+          "esim_countries": {
+            "description": "List of countries or regions supported by the eSIM package.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "esim_package_type": {
+            "description": "Type of eSIM package.",
+            "type": "string"
+          },
+          "geo_scope": {
+            "description": "Geographic scope of the eSIM package.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "geo_scope",
+          "esim_package_type"
+        ],
+        "type": "object"
+      },
+      "VariantData": {
+        "additionalProperties": false,
+        "properties": {
+          "attributes": {
+            "$ref": "#/components/schemas/VariantAttributes",
+            "description": "Contains information about the package's geographic coverage area, the list of supported countries, and the type of eSIM package. The set of fields may vary depending on the value of geo_scope."
+          },
+          "description": {
+            "description": "For eSIM products, the description usually contains the coverage area and the included service type, such as data only or data with voice calls and SMS.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Packed esim variant id (same as id in list response); GET returns one variant with products.",
+            "type": "string"
+          },
+          "image": {
+            "description": "Esim variant image.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Esim variant name.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "image",
+          "attributes"
+        ],
+        "type": "object"
+      },
+      "VoucherProductDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "description": "Product country or region label from the provider, if any.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Packed product id — use as root_id in POST /api/v1/orders when service_type is voucher (same id as in list and get by id).",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "description": "Human-readable product title.",
+            "type": "string"
+          },
+          "variations": {
+            "description": "Purchasable denominations or SKUs for this product.",
+            "items": {
+              "$ref": "#/components/schemas/VoucherVariationDTO"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "variations",
+          "id"
+        ],
+        "type": "object"
+      },
+      "VoucherServiceParams": {
+        "additionalProperties": false,
+        "properties": {
+          "quantity": {
+            "description": "How many voucher units to buy (integer >= 1).",
+            "examples": [
+              1
+            ],
+            "format": "int32",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "root_id": {
+            "description": "Product ID from GET /api/v1/catalog/vouchers (the product id field in the catalog response).",
+            "examples": [
+              1
+            ],
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "variant_id": {
+            "description": "Variation ID for that product from the same catalog entry (variations[].id).",
+            "examples": [
+              2
+            ],
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "root_id",
+          "variant_id",
+          "quantity"
+        ],
+        "type": "object"
+      },
+      "VoucherServiceResult": {
+        "additionalProperties": false,
+        "properties": {
+          "vouchers": {
+            "description": "Issued voucher entries",
+            "items": {
+              "$ref": "#/components/schemas/VoucherServiceResultItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "vouchers"
+        ],
+        "type": "object"
+      },
+      "VoucherServiceResultItem": {
+        "additionalProperties": false,
+        "properties": {
+          "expiration": {
+            "description": "Voucher expiration value if provided by provider",
+            "examples": [
+              ""
+            ],
+            "type": "string"
+          },
+          "pin": {
+            "description": "Voucher pin/code value",
+            "examples": [
+              "kgNqnMV22M30CcB3C6"
+            ],
+            "type": "string"
+          },
+          "serialNumber": {
+            "description": "Voucher serial number if provided by provider",
+            "examples": [
+              ""
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "pin"
+        ],
+        "type": "object"
+      },
+      "VoucherVariationDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "benefits": {
+            "description": "Optional marketing or feature text from the provider.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Variation id — use as variant_id in POST /api/v1/orders together with this product's id as root_id.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "description": "Variation title (face value or product line name).",
+            "type": "string"
+          },
+          "price": {
+            "description": "Final price string for your merchant (after commission rules).",
+            "type": "string"
+          },
+          "stock": {
+            "description": "Approximate stock or availability indicator from the provider (semantics depend on provider).",
+            "format": "int64",
+            "type": "integer"
+          },
+          "voucher_currency": {
+            "description": "Currency code for the face value as defined by the provider.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "voucher_currency",
+          "price",
+          "stock",
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "admin_key": {
+        "description": "Static admin API key.",
+        "in": "header",
+        "name": "X-Admin-Key",
+        "type": "apiKey"
+      },
+      "legacy_key": {
+        "description": "Static legacy API key.",
+        "in": "header",
+        "name": "X-Legacy-Key",
+        "type": "apiKey"
+      },
+      "moderation_key": {
+        "description": "Static moderation API key.",
+        "in": "header",
+        "name": "X-Moderation-Key",
+        "type": "apiKey"
+      }
+    }
+  },
+  "custom_page": [
+    {
+      "name": "Introduction",
+      "value": "\n# Introduction\n***\nThe DesslyHub API is designed to enable partners to integrate with the DesslyHub platform. The API allows you to create orders, retrieve information about order and payment statuses, and pass the parameters required to perform services.\n\nAll requests are made relative to the base URL:\n\nProduction:\nhttps://desslyhub.com\n\nCurrent API version:\n/api/v1\n***\nNot all API methods require the transmission of authorization headers. \nAuthentication requirements are specified in the description of each method.\nIf a method requires authentication, the client must send the following headers:\n\nX-Ap-Key\nX-Timestamp\nX-Signature\n***\n**Apikey** is a unique client identifier used for authentication. It must be sent in a header named “X-Ap-Key”.\n\n**Timestamp** is the Unix time in seconds, converted to a string of decimal digits. It is used to generate the Signature. The Timestamp must be included in a header named “X-Timestamp”.\n\n**Secret** is the client's secret key. It is used to generate the request signature. It must not be included in the request.\n\n**Signature** - A unique signature for your requests, consisting of apiKey+timestamp+body. The resulting string is then signed using the Secret via the HMAC-SHA256 algorithm. If the body is empty, an empty string should be used. The Signature must be included in a header named “X-Signature”.\n>signature = HMAC-SHA256(secret, apiKey + timestamp + body)\n***\n",
+      "x-tagGroupsName": "API"
+    },
+    {
+      "name": "Error Codes",
+      "value": "\n# Error Codes\n\nThese error_code values are what the merchant-documented API can return today (Balance, Orders, Apikey, Catalog, Currency). Refill and payment endpoints are documented separately.\n\n**Common HTTP errors**\n***\n[{\"thead\":\"Code\",\"tbody\":[\"-1\",\"-2\",\"-3\",\"-4\",\"-5\",\"-6\",\"-7\",\"-8\",\"-9\",\"-10\",\"-11\",\"-13\"]},{\"thead\":\"Error Message\",\"tbody\":[\"Internal server error\",\"Insufficient funds in merchant balance\",\"Access denied\",\"Invalid payment method\",\"Invalid service type\",\"Service type not available for paylink\",\"Invalid service parameters\",\"Quantity required for voucher service type\",\"Duplicate reference\",\"API key not found\",\"Invalid amount\",\"Merchant not found\"]}]\n***\n**Orders errors**\n[{\"thead\":\"Code\",\"tbody\":[\"-152\"]},{\"thead\":\"Error Message\",\"tbody\":[\"Order not found\"]}]\n\n***\n**Steam Gift — catalog (HTTP)**\n\nErrors on GET catalog steam-gift game info.\n***\n[{\"thead\":\"Code\",\"tbody\":[\"-53\"]},{\"thead\":\"Error Message\",\"tbody\":[\"Game not found\"]}]\n***\n**Steam Gift — order service_result JSON**\n\nAfter a steam_gift order is finalized, the order payload may include error_code inside service_result (gift provider status), not as the top-level HTTP error_code.\n***\n[{\"thead\":\"Code\",\"tbody\":[\"-51\",\"-53\",\"-54\",\"-55\",\"-56\",\"-57\",\"-58\",\"-59\"]},{\"thead\":\"Error Message\",\"tbody\":[\"Invalid invite token\",\"Game not found\",\"Main game not found\",\"Client already has game\",\"Unable to add friend\",\"Incorrect customer region\",\"Region is not available for gift\",\"User is not friend\"]}]\n***\n**Steam Refill — catalog (HTTP)**\n\nCheck Steam username (catalog).\n***\n[{\"thead\":\"Code\",\"tbody\":[\"-100\"]},{\"thead\":\"Error Message\",\"tbody\":[\"Invalid Steam login\"]}]\n***\n**Currency (HTTP)**\n\nAlso uses -1 from the common table when the upstream rate service fails.\n***\n[{\"thead\":\"Code\",\"tbody\":[\"-120\",\"-121\"]},{\"thead\":\"Error Message\",\"tbody\":[\"Invalid currency parameter\",\"Currency not supported\"]}]\n***\n**Mobile Refill — catalog (HTTP)**\n\nList / get mobile refill games in catalog.\n***\n[{\"thead\":\"Code\",\"tbody\":[\"-200\",\"-201\"]},{\"thead\":\"Error Message\",\"tbody\":[\"Mobile game not found\",\"Mobile game position not found\"]}]\n***\n**Vouchers — catalog (HTTP)**\n\nList / get vouchers in catalog.\n***\n[{\"thead\":\"Code\",\"tbody\":[\"-300\",\"-301\"]},{\"thead\":\"Error Message\",\"tbody\":[\"Voucher not found\",\"Voucher not available\"]}]\n***\n**Esim — catalog (HTTP)**\n\nList / get esim products in catalog.\n***\n[{\"thead\":\"Code\",\"tbody\":[\"-350\",\"-351\"]},{\"thead\":\"Error Message\",\"tbody\":[\"Esim variant not found\",\"Esim product not found\"]}]\n***\n",
+      "x-tagGroupsName": "Error Codes"
+    }
+  ],
+  "info": {
+    "title": "Desslyhub API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/balance": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Returns current merchant balance, overdraft, reserve and available balance.",
+        "operationId": "get-balance",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BalanceResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get merchant balance",
+        "tags": [
+          "Balance"
+        ]
+      }
+    },
+    "/api/v1/catalog/esim/products": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Obtaining a list of esim products available to your merchant account.",
+        "operationId": "get-esim-product-list",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          },
+          {
+            "description": "next_cursor returned by the Esim Product list query",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "next_cursor returned by the Esim Product list query",
+              "examples": [
+                "1234567890"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetEsimProductListResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get Esim product list",
+        "tags": [
+          "Esim"
+        ]
+      }
+    },
+    "/api/v1/catalog/esim/products/{variant_id}": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Obtaining information about a specific esim product by its identifier.",
+        "operationId": "get-esim-product-by-id",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Packed esim variant id (same as id in list response); GET returns one variant with products.",
+            "in": "path",
+            "name": "variant_id",
+            "required": true,
+            "schema": {
+              "description": "Packed esim variant id (same as id in list response); GET returns one variant with products.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetEsimProductByIDResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get Esim product by id",
+        "tags": [
+          "Esim"
+        ]
+      }
+    },
+    "/api/v1/catalog/mobile-refill/games": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Obtaining a list of games available for replenishment, indicating the source option.",
+        "operationId": "list-mobile-games",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMobileGamesResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List mobile refill games",
+        "tags": [
+          "Mobile Refill"
+        ]
+      }
+    },
+    "/api/v1/catalog/mobile-refill/games/{game_id}": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Obtaining information about a specific game by its identifier, indicating the source option.",
+        "operationId": "get-mobile-game",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Packed game id from GET /api/v1/catalog/mobile-refill/games .",
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "description": "Packed game id from GET /api/v1/catalog/mobile-refill/games .",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MobileGameDetailsDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get mobile refill game",
+        "tags": [
+          "Mobile Refill"
+        ]
+      }
+    },
+    "/api/v1/catalog/steam-gift/games": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Obtaining a list of games available for purchase.",
+        "operationId": "list-steam-gift-games",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSteamGiftGamesResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List Steam Gift games",
+        "tags": [
+          "Steam Gift"
+        ]
+      }
+    },
+    "/api/v1/catalog/steam-gift/games/{app_id}": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Obtaining information about specific editions of the game by its app_id.",
+        "operationId": "get-steam-gift-game",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Steam App ID",
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "description": "Steam App ID",
+              "examples": [
+                "730"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSteamGiftGameResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get Steam Gift game info",
+        "tags": [
+          "Steam Gift"
+        ]
+      }
+    },
+    "/api/v1/catalog/steam-refill/check_login/{username}": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Verifying the ability to top up a Steam account by username.",
+        "operationId": "check-steam-username",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Steam username",
+            "in": "path",
+            "name": "username",
+            "required": true,
+            "schema": {
+              "description": "Steam username",
+              "examples": [
+                "username"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckSteamUsernameResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Check Steam username",
+        "tags": [
+          "Steam Refill"
+        ]
+      }
+    },
+    "/api/v1/catalog/vouchers": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Obtaining information about vouchers.",
+        "operationId": "list-vouchers",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListVouchersResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List vouchers",
+        "tags": [
+          "Voucher"
+        ]
+      }
+    },
+    "/api/v1/catalog/vouchers/{product_id}": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Obtaining information about a specific voucher by its identifier.",
+        "operationId": "get-voucher",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Packed voucher product id (same as id in list response); GET returns one product with variations.",
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "description": "Packed voucher product id (same as id in list response); GET returns one product with variations.",
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoucherProductDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get voucher",
+        "tags": [
+          "Voucher"
+        ]
+      }
+    },
+    "/api/v1/currency/exchange_rates/steam": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Returns a list of exchange rates",
+        "operationId": "get-all-exchange-rates-steam",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetAllExchangeRatesResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [],
+        "summary": "List exchange rates",
+        "tags": [
+          "Currency Exchange Rate"
+        ]
+      }
+    },
+    "/api/v1/currency/exchange_rates/steam/{currency_id}": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Returns exchange rate for a single currency (enum id as in currency_exchanger entities).",
+        "operationId": "get-exchange-rate-steam",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Currency enum id (uint8 as string)",
+            "in": "path",
+            "name": "currency_id",
+            "required": true,
+            "schema": {
+              "description": "Currency enum id (uint8 as string)",
+              "examples": [
+                "1"
+              ],
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetExchangeRateResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [],
+        "summary": "Get exchange rate by currency id",
+        "tags": [
+          "Currency Exchange Rate"
+        ]
+      }
+    },
+    "/api/v1/orders": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Returns a paginated list of merchant orders with payment and service details.",
+        "operationId": "list-orders",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size (1-100)",
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 20,
+              "description": "Page size (1-100)",
+              "format": "int32",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Pagination offset",
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "description": "Pagination offset",
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListOrdersResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List orders",
+        "tags": [
+          "Orders"
+        ]
+      },
+      "post": {
+        "callback": "execute(request)",
+        "description": "Validates service parameters, calculates price, checks merchant balance and creates an order atomically.",
+        "operationId": "create-order",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateOrderResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create order",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Returns full order information including payment and service details.",
+        "operationId": "get-order",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Order ID",
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "description": "Order ID",
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDetailsDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get order",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/transactions": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Returns a list of transactions for the merchant.",
+        "operationId": "get-transactions",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page number",
+            "explode": false,
+            "in": "query",
+            "name": "page",
+            "required": true,
+            "schema": {
+              "description": "Page number",
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionsResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get transactions",
+        "tags": [
+          "Old Transactions"
+        ]
+      }
+    },
+    "/api/v1/transactions/{trx_id}": {
+      "get": {
+        "callback": "execute(request)",
+        "description": "Returns a transaction by its ID.",
+        "operationId": "get-transaction-by-id",
+        "parameters": [
+          {
+            "description": "Merchant API key",
+            "in": "header",
+            "name": "X-Api-Key",
+            "required": true,
+            "schema": {
+              "description": "Merchant API key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+            "in": "header",
+            "name": "X-Timestamp",
+            "required": true,
+            "schema": {
+              "description": "Unix timestamp (seconds); must be within ±5 min of server time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+            "in": "header",
+            "name": "X-Signature",
+            "required": true,
+            "schema": {
+              "description": "HMAC-SHA256(secret, apiKey+timestamp+body); lowercase hex",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Transaction ID",
+            "in": "path",
+            "name": "trx_id",
+            "required": true,
+            "schema": {
+              "description": "Transaction ID",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get transaction by ID",
+        "tags": [
+          "Old Transactions"
+        ]
+      }
+    },
+    "/merchant/top-up/": {
+      "get": {
+        "description": "To add funds to your account (cryptocurrency or rubles), click the link [https://desslyhub.com/merchant/top-up/](https://desslyhub.com/merchant/top-up/).",
+        "operationId": "top-up-balance",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Top up balance",
+        "tags": [
+          "Balance"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "description": "Merchant API",
+      "url": "https://desslyhub.com"
+    }
+  ],
+  "settings": {
+    "group": {
+      "admin": "/openapi/admin.json",
+      "moderation": "/openapi/moderation.json"
+    },
+    "required": {
+      "apikey": "Merchant API key (X-Api-Key header value)",
+      "secret": "Merchant HMAC secret (same as stored server-side for the API key)"
+    },
+    "script": "async function execute(req) {\n  const secret = sessionStorage.getItem(\"secret\");\n  const apikey = sessionStorage.getItem(\"apikey\");\n  if (!secret) {\n    throw new Error(\"secret missing (sessionStorage)\");\n  }\n  if (!apikey) {\n    throw new Error(\"apikey missing (sessionStorage)\");\n  }\n  const timestamp = Math.floor(Date.now() / 1000).toString();\n  if (!req.headers) {\n    req.headers = {};\n  }\n  req.headers[\"X-Timestamp\"] = timestamp;\n  const body = typeof req.body === \"string\" ? req.body : \"\";\n  const message = apikey + timestamp + body;\n  return await generateHMAC(message, secret);\n}\n\nasync function generateHMAC(message, secret) {\n  const encoder = new TextEncoder();\n  const keyData = encoder.encode(secret);\n  const msgData = encoder.encode(message);\n  const key = await crypto.subtle.importKey(\n    \"raw\",\n    keyData,\n    { name: \"HMAC\", hash: \"SHA-256\" },\n    false,\n    [\"sign\"]\n  );\n  const signature = await crypto.subtle.sign(\"HMAC\", key, msgData);\n  return Array.from(new Uint8Array(signature))\n    .map((b) => b.toString(16).padStart(2, \"0\"))\n    .join(\"\");\n}\n"
+  },
+  "x-tagGroups": [
+    {
+      "name": "MERCHANT",
+      "tags": [
+        "Balance",
+        "Orders",
+        "Apikey",
+        "Old Transactions"
+      ]
+    },
+    {
+      "name": "CATALOG",
+      "tags": [
+        "Steam Gift",
+        "Steam Refill",
+        "Mobile Refill",
+        "Voucher",
+        "Esim"
+      ]
+    },
+    {
+      "name": "SERVICES",
+      "tags": [
+        "Currency Exchange Rate"
+      ]
+    }
+  ]
+}
