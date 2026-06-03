@@ -304,6 +304,9 @@ CREATE TABLE reviews (
 
 CREATE INDEX idx_reviews_order ON reviews(order_id);
 CREATE INDEX idx_reviews_published ON reviews(is_published);
+-- Один отзыв (и один маркer «review_requested») на заказ. Делает атомарным дедуп запроса
+-- отзыва в cron: при гонке (Vercel Cron + ручной вызов) второй INSERT падает с 23505 и пропускается.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_reviews_order ON reviews(order_id);
 
 -- ============================================
 -- ФУНКЦИИ И ТРИГГЕРЫ
