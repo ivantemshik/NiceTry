@@ -78,11 +78,16 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
     authTriedRef.current = true
 
     // Авто-вход: отправляем подписанный initData на сервер (проверка HMAC там).
+    // Таймаут через AbortController — иначе зависшая сеть оставила бы UI в вечном
+    // 'authenticating'. По таймауту/отказу переходим в 'error' (fallback на обычный вход).
     setAuthState('authenticating')
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 10_000)
     fetch('/api/telegram/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ initData: tg.initData }),
+      signal: ctrl.signal,
     })
       .then(async (res) => {
         if (res.ok) {
@@ -103,6 +108,7 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .catch(() => setAuthState('error'))
+      .finally(() => clearTimeout(timer))
   }, [router])
 
   // BackButton Telegram: показываем на внутренних страницах, прячем на главной.
