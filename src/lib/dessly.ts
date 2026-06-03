@@ -45,16 +45,9 @@ export interface DesslyGiftRequest {
   edition?: string
 }
 
-/**
- * Валидация ссылки-приглашения Steam: https://s.team/p/<code> (короткая) или
- * https://steamcommunity.com/p/<code>. Используется фолбэк-экраном отправки игры (Блок B2)
- * и перед боевым sendGift, чтобы не отправлять заведомо некорректную ссылку.
- */
-export const STEAM_INVITE_RE = /^https:\/\/(s\.team\/p\/[A-Za-z0-9_-]+|steamcommunity\.com\/p\/[A-Za-z0-9_-]+)(\/[A-Za-z0-9_-]+)?\/?$/
-
-export function isSteamInviteUrl(url: string): boolean {
-  return STEAM_INVITE_RE.test((url || '').trim())
-}
+// Валидатор ссылки-приглашения Steam вынесен в client-safe модуль (без process.env/catalog),
+// чтобы фолбэк-экран отправки игры (клиентский компонент) не тянул серверный клиент в бандл.
+export { STEAM_INVITE_RE, isSteamInviteUrl } from './dessly-gift'
 
 export interface DesslyGiftResponse {
   transactionId: string

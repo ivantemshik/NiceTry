@@ -49,3 +49,9 @@ Thumbs.db
 .supabase/
 
 .vercel
+
+# Claude Code / skills tooling (артефакты сессии, не часть проекта)
+.claude/
+.agents/
+skills-lock.json
+documents.txt

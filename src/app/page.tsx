@@ -147,6 +147,52 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* Точка входа «Отправь игру в стим» (Dessly) — фирменный светлый бело-синий стиль NiceTry.
+          Это только обёртка/триггер; сам флоу открывается на /send-game. */}
+      <Link
+        href="/send-game"
+        className="send-game-card"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          padding: '18px 22px',
+          marginBottom: 24,
+          borderRadius: 16,
+          background: 'linear-gradient(100deg, #eef5ff 0%, #ffffff 60%)',
+          border: '1px solid #dbe7fb',
+          textDecoration: 'none',
+          color: '#0f1e3c',
+          boxShadow: '0 2px 10px rgba(15,30,60,.06)',
+        }}
+      >
+        <div
+          style={{
+            flex: '0 0 auto',
+            width: 48,
+            height: 48,
+            borderRadius: 12,
+            background: '#1f6feb',
+            display: 'grid',
+            placeItems: 'center',
+            color: '#fff',
+            fontSize: 24,
+          }}
+          aria-hidden
+        >
+          🎮
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 17 }}>Отправь игру в стим</div>
+          <div style={{ color: '#5b6b86', fontSize: 14 }}>
+            Подари любую игру по ссылке-приглашению Steam — выбор издания, региона и расчёт за пару кликов.
+          </div>
+        </div>
+        <div className="btn btn-primary" style={{ flex: '0 0 auto' }}>
+          Отправить
+        </div>
+      </Link>
+
       {/* Плитки категорий */}
       {categories.length > 0 && (
         <div className="cat-tiles">
