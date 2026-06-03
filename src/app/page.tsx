@@ -42,6 +42,7 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [banners, setBanners] = useState<Array<{ id: string; title: string; image_url: string; link_url?: string }>>([])
+  const [sendGameEnabled, setSendGameEnabled] = useState(true)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -63,6 +64,14 @@ export default function HomePage() {
     fetch('/api/banners')
       .then(res => res.json())
       .then(data => setBanners(data.banners || []))
+      .catch(() => {})
+  }, [])
+
+  // Видимость карточки «Отправь игру в стим» — управляется из админки (категории Dessly).
+  useEffect(() => {
+    fetch('/api/dessly/config')
+      .then((r) => r.json())
+      .then((c) => setSendGameEnabled(c.enabled !== false))
       .catch(() => {})
   }, [])
 
@@ -148,7 +157,9 @@ export default function HomePage() {
       )}
 
       {/* Точка входа «Отправь игру в стим» (Dessly) — фирменный светлый бело-синий стиль NiceTry.
-          Это только обёртка/триггер; сам флоу открывается на /send-game. */}
+          Это только обёртка/триггер; сам флоу открывается на /send-game.
+          Видимость управляется из админки (активность категорий Dessly). */}
+      {sendGameEnabled && (
       <Link
         href="/send-game"
         className="send-game-card"
@@ -192,6 +203,7 @@ export default function HomePage() {
           Отправить
         </div>
       </Link>
+      )}
 
       {/* Плитки категорий */}
       {categories.length > 0 && (

@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import {
   DESSLY_SERVICE_COMMISSION_PERCENT_DEFAULT,
   DESSLY_REGIONS,
   resolveSendGameMode,
+  sendGameEnabledFromCategories,
 } from '@/lib/dessly-gift'
 
 /**
@@ -22,7 +24,21 @@ export async function GET() {
 
   const entry = resolveSendGameMode(process.env.DESSLY_WIDGET_URL)
 
+  // Видимость карточки «Отправь игру в стим» — по активности категорий поставщика Dessly
+  // (админ вкл/выкл через редактор категорий, Блок A4). Деградация: при ошибке БД → enabled.
+  let enabled = true
+  try {
+    const { data } = await supabaseAdmin
+      .from('categories')
+      .select('supplier, is_active')
+      .eq('supplier', 'dessly')
+    enabled = sendGameEnabledFromCategories(data)
+  } catch {
+    enabled = true
+  }
+
   return NextResponse.json({
+    enabled,
     commission_percent,
     mode: entry.mode,
     widget_url: entry.mode === 'embed' ? entry.url : null,

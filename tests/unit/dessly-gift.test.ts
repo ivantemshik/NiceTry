@@ -3,6 +3,7 @@ import {
   computeGiftTotal,
   resolveSendGameMode,
   isSteamInviteUrl,
+  sendGameEnabledFromCategories,
   DESSLY_REGIONS,
   DESSLY_SERVICE_COMMISSION_PERCENT_DEFAULT,
 } from '@/lib/dessly-gift'
@@ -74,6 +75,31 @@ describe('isSteamInviteUrl — реэкспортируется и доступ�
   })
   it('невалидная ссылка', () => {
     expect(isSteamInviteUrl('https://example.com/p/abcd')).toBe(false)
+  })
+})
+
+describe('sendGameEnabledFromCategories — вкл/выкл карточки админом (Блок B4)', () => {
+  it('активная категория dessly → включено', () => {
+    expect(sendGameEnabledFromCategories([{ supplier: 'dessly', is_active: true }])).toBe(true)
+  })
+  it('все категории dessly выключены → выключено', () => {
+    expect(sendGameEnabledFromCategories([{ supplier: 'dessly', is_active: false }])).toBe(false)
+  })
+  it('хотя бы одна активная dessly из нескольких → включено', () => {
+    expect(
+      sendGameEnabledFromCategories([
+        { supplier: 'dessly', is_active: false },
+        { supplier: 'dessly', is_active: true },
+      ])
+    ).toBe(true)
+  })
+  it('нет категорий dessly → включено (не прячем молча)', () => {
+    expect(sendGameEnabledFromCategories([{ supplier: 'approute', is_active: true }])).toBe(true)
+  })
+  it('деградация: пустой/нет данных → включено', () => {
+    expect(sendGameEnabledFromCategories([])).toBe(true)
+    expect(sendGameEnabledFromCategories(null)).toBe(true)
+    expect(sendGameEnabledFromCategories(undefined)).toBe(true)
   })
 })
 

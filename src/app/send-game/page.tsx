@@ -8,6 +8,7 @@ import { computeGiftTotal, isSteamInviteUrl } from '@/lib/dessly-gift'
 import type { Product } from '@/types'
 
 interface DesslyConfig {
+  enabled?: boolean
   commission_percent: number
   mode: 'embed' | 'native'
   widget_url: string | null
@@ -132,8 +133,15 @@ export default function SendGamePage() {
         </p>
       </div>
 
-      {/* EMBED: готовое окно Dessly */}
-      {config?.mode === 'embed' && config.widget_url ? (
+      {/* Карточка выключена админом (категории Dessly неактивны). */}
+      {config && config.enabled === false ? (
+        <div className="card card-pad" style={{ background: '#fff', border: '1px solid #dbe7fb' }}>
+          <p style={{ color: '#5b6b86' }}>
+            Отправка игр временно недоступна. Загляните позже.
+          </p>
+        </div>
+      ) : /* EMBED: готовое окно Dessly */
+      config?.mode === 'embed' && config.widget_url ? (
         <div className="card card-pad" style={{ background: '#fff', border: '1px solid #dbe7fb' }}>
           <p style={{ color: '#5b6b86', marginBottom: 14 }}>
             Откроется готовое окно Dessly с выбором игры, издания, региона и расчётом.

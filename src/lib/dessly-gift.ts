@@ -40,6 +40,21 @@ export function computeGiftTotal(
   return { price, commission, total: price + commission }
 }
 
+/**
+ * Включена ли карточка «Отправь игру в стим» — определяется по категориям-поставщику Dessly:
+ * если есть хотя бы одна активная категория supplier='dessly' — карточка доступна.
+ * Админ управляет этим через редактор категорий (вкл/выкл категории dessly-games, Блок A4).
+ * При пустом/недоступном списке (деградация) считаем включённой, чтобы не прятать витрину молча.
+ */
+export function sendGameEnabledFromCategories(
+  rows: Array<{ supplier?: string | null; is_active?: boolean | null }> | null | undefined
+): boolean {
+  if (!rows || rows.length === 0) return true
+  const dessly = rows.filter((r) => r?.supplier === 'dessly')
+  if (dessly.length === 0) return true
+  return dessly.some((r) => r.is_active !== false)
+}
+
 export type SendGameMode = { mode: 'embed'; url: string } | { mode: 'native' }
 
 /**
