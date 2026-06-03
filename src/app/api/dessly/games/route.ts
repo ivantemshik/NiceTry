@@ -8,7 +8,7 @@ import type { DesslyGame } from '@/lib/dessly'
  *
  * Query params:
  *   search  — фильтр по названию (ilike, минимум 2 символа)
- *   limit   — размер страницы (по умолчанию 50, максимум 200)
+ *   limit   — размер страницы (по умолчанию 100, максимум 5000)
  *   offset  — смещение (по умолчанию 0)
  *
  * Возвращает:
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const search = (searchParams.get('search') || '').trim().toLowerCase()
-    const limit = clamp(searchParams.get('limit'), 50, 1, 200)
+    const limit = clamp(searchParams.get('limit'), 100, 1, 5000)
     const offset = clamp(searchParams.get('offset'), 0, 0, 50000)
 
     const games = await listGames()

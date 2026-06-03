@@ -28,6 +28,7 @@ export default function SendGamePage() {
   const [allGames, setAllGames] = useState<GameEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [totalCount, setTotalCount] = useState(0)
 
   const [selectedGame, setSelectedGame] = useState<GameEntry | null>(null)
   const [region, setRegion] = useState('RU')
@@ -46,23 +47,36 @@ export default function SendGamePage() {
       .catch(() => setConfig({ commission_percent: 4, mode: 'native', widget_url: null, regions: ['RU'] }))
   }, [])
 
-  // Games — fetch ALL from live Dessly API (with search support)
+  // Games — fetch from live Dessly API. Search = server-side, debounced 300ms.
+  const [searchFetchId, setSearchFetchId] = useState(0)
   useEffect(() => {
-    fetch('/api/dessly/games?limit=200')
-      .then((r) => r.json())
-      .then((data) => {
-        setAllGames(data.games || [])
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
+    const q = search.trim()
+    const params = new URLSearchParams()
+    params.set('limit', q ? '5000' : '500') // с поиском — все; без — первые 500
+    if (q.length >= 1) params.set('search', q)
 
-  // Search: client-side filter (debounced)
-  const filteredGames = useMemo(() => {
-    if (!search.trim()) return allGames
-    const q = search.toLowerCase()
-    return allGames.filter((g) => g.name.toLowerCase().includes(q))
-  }, [allGames, search])
+    const id = searchFetchId + 1
+    setSearchFetchId(id)
+    setLoading(true)
+
+    const timer = setTimeout(() => {
+      fetch(`/api/dessly/games?${params}`)
+        .then((r) => r.json())
+        .then((data) => {
+          // Игнорируем ответ, если уже отправили новый запрос
+          setSearchFetchId((prev) => {
+            if (prev !== id) return prev
+            setAllGames(data.games || [])
+            setTotalCount(data.total || 0)
+            setLoading(false)
+            return prev
+          })
+        })
+        .catch(() => setLoading(false))
+    }, q ? 300 : 0) // debounce 300ms при поиске, мгновенно при начальной загрузке
+
+    return () => clearTimeout(timer)
+  }, [search])
 
   const inviteValid = isSteamInviteUrl(invite)
 
@@ -186,15 +200,16 @@ export default function SendGamePage() {
               <div style={{ textAlign: 'center', padding: 40, color: '#5b6b86' }}>
                 Загрузка каталога игр...
               </div>
-            ) : filteredGames.length === 0 ? (
+            ) : allGames.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 40, color: '#5b6b86' }}>
                 {search ? 'Ничего не найдено. Попробуйте другой запрос.' : 'Сейчас нет доступных игр.'}
               </div>
             ) : (
               <>
                 <div style={{ fontSize: 13, color: '#8a97ab', marginBottom: 10 }}>
-                  Найдено: {filteredGames.length} игр
-                  {search && allGames.length !== filteredGames.length && ` (из ${allGames.length})`}
+                  {search
+                    ? `Найдено: ${totalCount} игр`
+                    : `Показаны первые ${allGames.length} из ${totalCount} игр`}
                 </div>
 
                 {/* Сетка игр — скроллируемая */}
@@ -208,7 +223,7 @@ export default function SendGamePage() {
                     padding: '2px',
                   }}
                 >
-                  {filteredGames.slice(0, 120).map((game) => (
+                  {allGames.map((game) => (
                     <GameCard
                       key={game.app_id}
                       game={game}
@@ -216,7 +231,7 @@ export default function SendGamePage() {
                       onSelect={() => setSelectedGame(game)}
                     />
                   ))}
-                  {filteredGames.length > 120 && (
+                  {allGames.length < totalCount && (
                     <div style={{
                       gridColumn: '1 / -1',
                       textAlign: 'center',
@@ -224,7 +239,7 @@ export default function SendGamePage() {
                       color: '#8a97ab',
                       fontSize: 13,
                     }}>
-                      Показаны первые 120 из {filteredGames.length}. Уточните поиск для более узкого результата.
+                      Показаны первые {allGames.length} из {totalCount}. Введите поиск чтобы найти нужную игру.
                     </div>
                   )}
                 </div>
