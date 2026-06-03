@@ -54,6 +54,9 @@ function apiKey(): string {
 
 /** Боевой режим включён, только если задан валидный (не плейсхолдерный) ключ. */
 export function isLiveMode(): boolean {
+  // Форс-мок: герметичность тестов/стейджа даже при реальном ключе в окружении.
+  // Боевые HTTP-пути покрываются отдельно стабом global.fetch.
+  if (process.env.NICETRY_FORCE_SUPPLIER_MOCK === '1') return false
   const key = apiKey()
   return !PLACEHOLDER_VALUES.has(key) && key.length > 0
 }

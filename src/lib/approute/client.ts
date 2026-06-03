@@ -47,6 +47,9 @@ function rawApiKey(): string {
 
 /** Боевой режим включён, только если заданы валидные (не плейсхолдерные) base URL и ключ. */
 export function isLiveMode(): boolean {
+  // Форс-мок: герметичность тестов/стейджа даже при реальных ключах в окружении.
+  // Боевые HTTP-пути покрываются отдельно стабом global.fetch.
+  if (process.env.NICETRY_FORCE_SUPPLIER_MOCK === '1') return false
   const base = rawBaseUrl()
   const key = rawApiKey()
   if (PLACEHOLDER_VALUES.has(base) || PLACEHOLDER_VALUES.has(key)) return false
@@ -82,6 +85,24 @@ const NON_ERROR_CODES = new Set<AppRouteStatusCode>([
   AppRouteStatusCode.ACCEPTED,
   AppRouteStatusCode.IDEMPOTENCY_REPLAY,
 ])
+
+/**
+ * Валидация ключа идемпотентности (PDF/ТЗ §глоссарий): referenceId уникален, длина 1..40 символов.
+ * Бросаем до отправки запроса, чтобы не тратить вызов поставщика на заведомо невалидный ввод
+ * и вернуть тот же VALIDATION_ERROR, что вернул бы боевой API.
+ */
+function assertReferenceId(referenceId: string): void {
+  const len = (referenceId ?? '').length
+  if (len < 1 || len > 40) {
+    throw new AppRouteError(
+      `referenceId must be 1..40 characters (got ${len})`,
+      AppRouteStatusCode.VALIDATION_ERROR,
+      422,
+      '',
+      [{ field: 'referenceId', code: 'INVALID_LENGTH', message: 'referenceId length must be 1..40' }]
+    )
+  }
+}
 
 /** Разбор envelope: бросает AppRouteError на не-успешных statusCode, логирует traceId. */
 function unwrap<T>(env: AppRouteEnvelope<T>, httpStatus: number): AppRouteEnvelope<T> {
@@ -223,6 +244,7 @@ export async function createShopOrder(
   quantity = 1,
   isLongOrder = false
 ): Promise<AppRouteEnvelope<AppRouteCreateOrderData>> {
+  assertReferenceId(referenceId)
   const req: AppRouteCreateOrderRequest = {
     ordersType: 'shop',
     referenceId,
@@ -241,6 +263,7 @@ export async function createDtuOrder(
   fields: Array<{ key: string; value: string }>,
   options: { quantity?: number; amountCurrencyCode?: string | null } = {}
 ): Promise<AppRouteEnvelope<AppRouteCreateOrderData>> {
+  assertReferenceId(referenceId)
   const req: AppRouteCreateOrderRequest = {
     ordersType: 'dtu',
     referenceId,

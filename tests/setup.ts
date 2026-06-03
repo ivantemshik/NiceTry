@@ -30,6 +30,14 @@ function loadEnvFile(file: string) {
 
 loadEnvFile('.env.local')
 
+// Hermetic supplier tests: even when real AppRoute/Dessly keys are present in .env.local,
+// the suite must never hit real provider APIs (a live sendGift could actually send a gift).
+// Default every test to mock mode; live-mode HTTP paths are covered by stubbing global.fetch
+// inside the specific tests that opt in (they set NICETRY_FORCE_SUPPLIER_MOCK='0' locally).
+if (!process.env.NICETRY_FORCE_SUPPLIER_MOCK) {
+  process.env.NICETRY_FORCE_SUPPLIER_MOCK = '1'
+}
+
 // Default NODE_ENV to 'test' (not 'production') so dev-only routes behave as in dev.
 if (!process.env.NODE_ENV) {
   ;(process.env as Record<string, string>).NODE_ENV = 'test'

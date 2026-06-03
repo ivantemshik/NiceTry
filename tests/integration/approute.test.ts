@@ -114,6 +114,27 @@ describe('AppRoute: покупка кода (shop) — полный цикл с 
     expect(second.data?.orderId).toBe(first.data?.orderId)
   })
 
+  it('referenceId длиной >40 символов отклоняется до отправки (VALIDATION_ERROR)', async () => {
+    const tooLong = 'x'.repeat(41)
+    try {
+      await createShopOrder(tooLong, 'den_steam_10', 1)
+      throw new Error('должна была быть выброшена AppRouteError')
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppRouteError)
+      expect((e as AppRouteError).statusCode).toBe(AppRouteStatusCode.VALIDATION_ERROR)
+    }
+  })
+
+  it('пустой referenceId отклоняется (VALIDATION_ERROR)', async () => {
+    await expect(createShopOrder('', 'den_steam_10', 1)).rejects.toBeInstanceOf(AppRouteError)
+  })
+
+  it('referenceId ровно 40 символов принимается', async () => {
+    const ref = 'a'.repeat(40)
+    const created = await createShopOrder(ref, 'den_steam_10', 1)
+    expect(created.data?.orderId).toBeTruthy()
+  })
+
   it('unhide без orderId/referenceId запрещён (бросает ошибку)', async () => {
     await expect(listOrders({ unhide: true })).rejects.toThrow(/orderId or referenceId/)
   })
