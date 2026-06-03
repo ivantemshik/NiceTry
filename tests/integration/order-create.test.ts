@@ -39,6 +39,7 @@ interface SeededUser {
 }
 
 const createdUserIds: string[] = []
+const createdProductIds: string[] = []
 
 async function seedUser(balance: number, opts: { statusId?: string | null; referredBy?: string | null } = {}): Promise<SeededUser> {
   const email = `vitest+ord-${randomUUID().slice(0, 8)}@nicetry.test`
@@ -113,6 +114,9 @@ afterAll(async () => {
   await del(() => admin.from('balance_transactions').delete().in('user_id', ids))
   await del(() => admin.from('orders').delete().in('user_id', ids)) // order_items cascade
   await del(() => admin.from('users').delete().in('id', ids))
+  // Тестовые товары удаляем ПОСЛЕ заказов (order_items на них уже сняты каскадом).
+  const pids = createdProductIds.splice(0)
+  if (pids.length) await del(() => admin.from('products').delete().in('id', pids))
   await Promise.all(ids.map((id) => admin.auth.admin.deleteUser(id).catch(() => {})))
   // Подчистка возможных orphan-заказов (user_id обнулён) — best effort.
   await del(() => admin.from('orders').delete().is('user_id', null))
@@ -288,6 +292,61 @@ describe('Гонка / двойное нажатие — баланс не ух�
       admin.from('orders').select('*', { head: true, count: 'exact' }).eq('user_id', user.id).eq('status', 'delivered')
     )
     expect(deliveredCount).toBe(1)
+  }, 60000)
+})
+
+describe('Сбой выдачи у поставщика → возврат на баланс, заказ cancelled (ТЗ §5.4)', () => {
+  it('AppRoute OUT_OF_STOCK: баланс возвращается, заказ cancelled, позиция failed, есть транзакция refund', async () => {
+    // Товар с denomination_id force_OUT_OF_STOCK → мок AppRoute бросает ошибку при выдаче.
+    const { data: forceProduct, error: pErr } = await retry(() =>
+      admin
+        .from('products')
+        .insert({
+          name: `VITEST force OUT_OF_STOCK ${randomUUID().slice(0, 6)}`,
+          description: 'vitest',
+          type: 'instant',
+          category_id: instantProduct.category_id,
+          price: 500,
+          stock: 100,
+          is_active: true,
+          supplier: 'approute',
+          supplier_service_id: 'svc_vitest_force',
+          denomination_id: 'force_OUT_OF_STOCK',
+        })
+        .select()
+        .single()
+    )
+    if (pErr || !forceProduct) throw new Error(`seed force product: ${pErr?.message}`)
+    createdProductIds.push(forceProduct.id)
+
+    const user = await seedUser(2000, { statusId: zeroStatusId })
+    currentUser = user
+
+    const res = await ordersCreatePOST(
+      req({ items: [{ product_id: forceProduct.id, quantity: 1 }], payment_method: 'balance' })
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.order.status).toBe('cancelled')
+    expect(body.order.delivered_items).toHaveLength(0)
+
+    // Баланс вернулся к исходному (списали 500 → вернули 500).
+    expect(await getBalance(user.id)).toBe(2000)
+
+    // Есть транзакция списания и транзакция возврата.
+    const { data: txns } = await retry(() =>
+      admin.from('balance_transactions').select('*').eq('user_id', user.id)
+    )
+    const purchase = txns!.find((t) => t.type === 'purchase')
+    const refund = txns!.find((t) => t.type === 'refund')
+    expect(Number(purchase!.amount)).toBe(-500)
+    expect(Number(refund!.amount)).toBe(500)
+
+    // Позиция помечена failed, заказ cancelled в БД.
+    const { data: items } = await retry(() => admin.from('order_items').select('*').eq('order_id', body.order.id))
+    expect(items![0].delivery_status).toBe('failed')
+    const { data: orderRow } = await retry(() => admin.from('orders').select('status').eq('id', body.order.id).single())
+    expect(orderRow!.status).toBe('cancelled')
   }, 60000)
 })
 

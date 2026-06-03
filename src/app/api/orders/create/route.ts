@@ -8,6 +8,7 @@ import {
   waitForOrder,
   unhideVouchers,
   AppRouteError,
+  AppRouteStatusCode,
 } from '@/lib/approute'
 import { sendGift, DesslyError } from '@/lib/dessly'
 import { notifyOrderDelivered } from '@/lib/telegram/notify'
@@ -20,6 +21,7 @@ import {
   settleAmounts,
   isPromoApplicable,
   computeReferralBonus,
+  proportionalRefund,
 } from '@/lib/order-math'
 import type { Product } from '@/types'
 
@@ -212,8 +214,15 @@ export async function POST(request: NextRequest) {
 
     // 6) Создание позиций + выдача (Контур B).
     const deliveredItems: Array<{ product_name: string; voucher_code: string }> = []
+    // Позиции, за которые покупатель реально платит (выданные + ручные в работе) — без
+    // проваленных/возвращённых: только по ним начисляется реферальный бонус.
+    const chargedLines: Line[] = []
     let traceId: string | undefined
     let allInstantDelivered = true
+    // Сумма проваленных моментальных позиций (для возврата на баланс) и счётчик асинхронных
+    // позиций (topup/manual — их обрабатывает менеджер, это НЕ провал).
+    let failedLineTotal = 0
+    let pendingCount = 0
 
     for (const line of lines) {
       const { product, quantity } = line
@@ -229,17 +238,23 @@ export async function POST(request: NextRequest) {
             deliveredItems.push({ product_name: product.name, voucher_code: voucherCode })
           } else {
             allInstantDelivered = false
+            deliveryStatus = 'failed'
+            failedLineTotal += line.linePrice
           }
         } catch (e) {
           allInstantDelivered = false
           deliveryStatus = 'failed'
+          failedLineTotal += line.linePrice
           if (e instanceof AppRouteError) traceId = e.traceId || traceId
           console.error('[orders] delivery failed:', e instanceof Error ? e.message : e)
         }
       } else {
-        // topup/manual — обрабатывает менеджер/асинхронный поток.
+        // topup/manual — обрабатывает менеджер/асинхронный поток (ожидаемо pending, не провал).
         allInstantDelivered = false
+        pendingCount += 1
       }
+
+      if (deliveryStatus !== 'failed') chargedLines.push(line)
 
       await supabaseAdmin.from('order_items').insert({
         order_id: order.id,
@@ -252,15 +267,52 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const newStatus = deliveredItems.length === lines.length && allInstantDelivered ? 'delivered' : 'paid'
+    // Статус заказа:
+    //  - всё моментальное выдано → delivered;
+    //  - ничего не выдано, нет ожидающих ручных позиций, но есть провалы → cancelled (полный возврат);
+    //  - иначе → paid (есть выданное и/или ручные позиции в работе).
+    let newStatus: 'delivered' | 'paid' | 'cancelled'
+    if (deliveredItems.length === lines.length && allInstantDelivered) {
+      newStatus = 'delivered'
+    } else if (deliveredItems.length === 0 && pendingCount === 0 && failedLineTotal > 0) {
+      newStatus = 'cancelled'
+    } else {
+      newStatus = 'paid'
+    }
+
+    // Возврат на баланс за непоставленные (failed) позиции (ТЗ §5.4): пропорционально их доле
+    // в финальной сумме. Делаем ДО смены статуса, чтобы при сбое не оставить деньги списанными.
+    const refundAmount = proportionalRefund(finalAmount, failedLineTotal, totalAmount)
+    if (refundAmount > 0) {
+      const { data: cur } = await supabaseAdmin
+        .from('users')
+        .select('balance')
+        .eq('id', authUser.id)
+        .single()
+      if (cur) {
+        await supabaseAdmin
+          .from('users')
+          .update({ balance: Number(cur.balance) + refundAmount })
+          .eq('id', authUser.id)
+        await supabaseAdmin.from('balance_transactions').insert({
+          user_id: authUser.id,
+          amount: refundAmount,
+          type: 'refund',
+          description: `Возврат за непоставленные позиции заказа ${orderNumber}`,
+          order_id: order.id,
+        })
+      }
+    }
+
     await supabaseAdmin
       .from('orders')
       .update({ status: newStatus, supplier_trace_id: traceId || null })
       .eq('id', order.id)
 
-    // 7) Реферальные начисления (процент по типу товара из настроек).
-    if (profile.referred_by) {
-      await creditReferral(profile.referred_by, authUser.id, order.id, orderNumber, lines)
+    // 7) Реферальные начисления (процент по типу товара из настроек) — только по оплаченным
+    //    (не возвращённым) позициям.
+    if (profile.referred_by && chargedLines.length) {
+      await creditReferral(profile.referred_by, authUser.id, order.id, orderNumber, chargedLines)
     }
 
     // 8) Уведомление о выдаче (ТЗ §5.8) — только для фактически выданных моментальных позиций.
@@ -316,10 +368,16 @@ async function deliverInstant(
   if (product.supplier === 'approute' && product.denomination_id) {
     const created = await createShopOrder(referenceId, product.denomination_id, quantity)
     const orderId = created.data?.orderId
-    await waitForOrder({ orderId, referenceId })
+    // Polling до терминального статуса (SUCCESS / PARTIALLY_COMPLETED / CANCELLED).
+    const settled = await waitForOrder({ orderId, referenceId })
+    // CANCELLED у поставщика → выдачи не будет, явно сигналим провал (→ возврат на баланс).
+    if (settled?.status === 'CANCELLED') {
+      throw new AppRouteError('Order cancelled by provider', AppRouteStatusCode.UPSTREAM_ERROR, 200, created.traceId)
+    }
+    // SUCCESS или PARTIALLY_COMPLETED: раскрываем доступные коды (при partial вернётся то, что есть).
     const codes = await unhideVouchers({ orderId, referenceId })
     if (codes.length) return codes
-    throw new AppRouteError('Voucher not available yet', 0 as never, 0, created.traceId)
+    throw new AppRouteError('Voucher not available yet', AppRouteStatusCode.UPSTREAM_ERROR, 0, created.traceId)
   }
 
   // Dessly: отправка игры гифтом (нужен получатель).

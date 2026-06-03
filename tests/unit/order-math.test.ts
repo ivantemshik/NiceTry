@@ -8,8 +8,34 @@ import {
   normalizeQuantity,
   computeReferralBonus,
   isTopup,
+  proportionalRefund,
 } from '@/lib/order-math'
 import { REFERRAL_PERCENTS } from '@/lib/constants'
+
+describe('proportionalRefund — возврат за непоставленные позиции', () => {
+  it('провалено всё → возвращается весь финальный платёж (без потерь округления)', () => {
+    expect(proportionalRefund(900, 1000, 1000)).toBe(900) // finalAmount возвращается целиком
+    expect(proportionalRefund(1000, 1000, 1000)).toBe(1000)
+  })
+  it('провалена половина суммы → половина финального платежа', () => {
+    expect(proportionalRefund(900, 500, 1000)).toBe(450)
+  })
+  it('пропорция от ФИНАЛЬНОЙ (со скидкой) суммы, округление до рубля', () => {
+    // final 912, провалено 333 из 1000 → 912*333/1000 = 303.7 → 304
+    expect(proportionalRefund(912, 333, 1000)).toBe(304)
+  })
+  it('ничего не провалено → 0', () => {
+    expect(proportionalRefund(900, 0, 1000)).toBe(0)
+  })
+  it('защита от некорректных входов → 0', () => {
+    expect(proportionalRefund(0, 500, 1000)).toBe(0)
+    expect(proportionalRefund(900, 500, 0)).toBe(0)
+    expect(proportionalRefund(900, -5, 1000)).toBe(0)
+  })
+  it('провалено больше суммы (защита) → весь финальный платёж', () => {
+    expect(proportionalRefund(900, 1500, 1000)).toBe(900)
+  })
+})
 
 describe('statusDiscount', () => {
   it('5% от 1000 = 50', () => {

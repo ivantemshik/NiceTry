@@ -93,6 +93,22 @@ export function normalizeQuantity(raw: unknown): { ok: true; quantity: number } 
   return { ok: true, quantity: qty }
 }
 
+/**
+ * Сумма возврата на баланс (₽) за непоставленные (failed) позиции заказа.
+ * Возврат пропорционален вкладу проваленных позиций в сумму заказа, считается от ФИНАЛЬНОЙ
+ * (уже со скидками) суммы — чтобы вернуть ровно столько, сколько было списано за эти позиции.
+ * Если провалено всё — возвращаем весь финальный платёж (без потерь на округлении).
+ */
+export function proportionalRefund(
+  finalAmount: number,
+  failedLineTotal: number,
+  totalAmount: number
+): number {
+  if (totalAmount <= 0 || failedLineTotal <= 0 || finalAmount <= 0) return 0
+  if (failedLineTotal >= totalAmount) return finalAmount
+  return Math.round((finalAmount * failedLineTotal) / totalAmount)
+}
+
 export interface ReferralLine {
   type: ProductType
   linePrice: number
