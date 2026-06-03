@@ -20,6 +20,9 @@ import { POST as ordersCreatePOST } from '@/app/api/orders/create/route'
 import { GET as orderGetGET } from '@/app/api/orders/[id]/route'
 import { GET as adminOrdersGET } from '@/app/api/admin/orders/route'
 import { PATCH as profilePATCH } from '@/app/api/user/profile/route'
+import { GET as adminCategoriesGET } from '@/app/api/admin/categories/route'
+import { PATCH as adminCategoryPATCH } from '@/app/api/admin/categories/[id]/route'
+import { POST as adminSyncApproutePOST } from '@/app/api/admin/sync-approute/route'
 
 function jsonReq(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/orders/create', {
@@ -157,6 +160,129 @@ describe('GET /api/admin/orders — гард администратора (requi
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.orders).toHaveLength(2)
+  })
+})
+
+describe('GET /api/admin/categories — гард администратора (Блок A4)', () => {
+  it('401 без авторизации', async () => {
+    state.session = makeSessionClient({ user: null })
+    state.admin = makeAdminClient({})
+    const res = await adminCategoriesGET()
+    expect(res.status).toBe(401)
+  })
+
+  it('403 для не-админа', async () => {
+    state.session = makeSessionClient({ user: { id: 'u1' } })
+    state.admin = makeAdminClient({ tables: { users: { data: { is_admin: false } } } })
+    const res = await adminCategoriesGET()
+    expect(res.status).toBe(403)
+  })
+
+  it('200 для админа со списком категорий', async () => {
+    state.session = makeSessionClient({ user: { id: 'admin1' } })
+    state.admin = makeAdminClient({
+      tables: {
+        users: { data: { is_admin: true } },
+        categories: { data: [{ id: 'c1', slug: 'steam' }, { id: 'c2', slug: 'psn' }] },
+      },
+    })
+    const res = await adminCategoriesGET()
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.categories).toHaveLength(2)
+  })
+})
+
+describe('PATCH /api/admin/categories/[id] — наценка/курс/видимость (Блок A4)', () => {
+  function patchReq(body: unknown) {
+    return new NextRequest('http://localhost/api/admin/categories/c1', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+
+  it('401 без авторизации', async () => {
+    state.session = makeSessionClient({ user: null })
+    state.admin = makeAdminClient({})
+    const res = await adminCategoryPATCH(patchReq({ markup_percent: 20 }), { params: { id: 'c1' } })
+    expect(res.status).toBe(401)
+  })
+
+  it('403 для не-админа', async () => {
+    state.session = makeSessionClient({ user: { id: 'u1' } })
+    state.admin = makeAdminClient({ tables: { users: { data: { is_admin: false } } } })
+    const res = await adminCategoryPATCH(patchReq({ markup_percent: 20 }), { params: { id: 'c1' } })
+    expect(res.status).toBe(403)
+  })
+
+  it('обновляет наценку/курс; slug и supplier игнорируются (белый список)', async () => {
+    const db: MockDb = {
+      tables: {
+        users: { data: { is_admin: true } },
+        categories: { data: { id: 'c1', markup_percent: 20, usd_to_rub_rate: 85 } },
+      },
+    }
+    state.session = makeSessionClient({ user: { id: 'admin1' } })
+    state.admin = makeAdminClient(db)
+    const res = await adminCategoryPATCH(
+      patchReq({ markup_percent: 20, usd_to_rub_rate: 85, slug: 'hacked', supplier: 'dessly' }),
+      { params: { id: 'c1' } }
+    )
+    expect(res.status).toBe(200)
+    const updateCall = (db.calls || []).find((c) => c.op === 'update')
+    const payload = updateCall!.payload as Record<string, unknown>
+    expect(payload.markup_percent).toBe(20)
+    expect(payload.usd_to_rub_rate).toBe(85)
+    expect(payload.slug).toBeUndefined()
+    expect(payload.supplier).toBeUndefined()
+  })
+
+  it('400 при отрицательной наценке', async () => {
+    state.session = makeSessionClient({ user: { id: 'admin1' } })
+    state.admin = makeAdminClient({ tables: { users: { data: { is_admin: true } } } })
+    const res = await adminCategoryPATCH(patchReq({ markup_percent: -5 }), { params: { id: 'c1' } })
+    expect(res.status).toBe(400)
+  })
+
+  it('400 если нет разрешённых полей', async () => {
+    state.session = makeSessionClient({ user: { id: 'admin1' } })
+    state.admin = makeAdminClient({ tables: { users: { data: { is_admin: true } } } })
+    const res = await adminCategoryPATCH(patchReq({ slug: 'x', supplier: 'y' }), { params: { id: 'c1' } })
+    expect(res.status).toBe(400)
+  })
+})
+
+describe('POST /api/admin/sync-approute — гард администратора + синхронизация (Блок A4)', () => {
+  it('401 без авторизации', async () => {
+    state.session = makeSessionClient({ user: null })
+    state.admin = makeAdminClient({})
+    const res = await adminSyncApproutePOST()
+    expect(res.status).toBe(401)
+  })
+
+  it('403 для не-админа', async () => {
+    state.session = makeSessionClient({ user: { id: 'u1' } })
+    state.admin = makeAdminClient({ tables: { users: { data: { is_admin: false } } } })
+    const res = await adminSyncApproutePOST()
+    expect(res.status).toBe(403)
+  })
+
+  it('200 для админа: синхронизация отрабатывает (success:true, supplier=approute)', async () => {
+    state.session = makeSessionClient({ user: { id: 'admin1' } })
+    state.admin = makeAdminClient({
+      tables: {
+        users: { data: { is_admin: true } },
+        categories: { data: { id: 'c1' } }, // существующая категория → slug маппится
+        products: { data: null }, // товаров ещё нет → insert
+      },
+    })
+    const res = await adminSyncApproutePOST()
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.supplier).toBe('approute')
+    expect(body.total).toBeGreaterThan(0)
   })
 })
 

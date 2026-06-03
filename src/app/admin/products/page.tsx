@@ -95,6 +95,8 @@ export default function AdminProductsPage() {
     }
   }
 
+  const [syncing, setSyncing] = useState(false)
+
   const handleImport = async () => {
     if (!confirm('Импортировать товары из AppRoute?')) return
 
@@ -113,6 +115,27 @@ export default function AdminProductsPage() {
     } catch (error) {
       console.error('Failed to import products:', error)
       alert('Ошибка при импорте товаров')
+    }
+  }
+
+  // Синхронизация ТОЛЬКО каталога AppRoute (категории + товары), Dessly не трогает.
+  const handleSyncApproute = async () => {
+    if (!confirm('Синхронизировать каталог AppRoute (категории и товары)?')) return
+    try {
+      setSyncing(true)
+      const res = await fetch('/api/admin/sync-approute', { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json()
+        alert(`AppRoute: добавлено ${data.imported || 0}, обновлено ${data.updated || 0} (категорий: ${data.categories || 0})`)
+        fetchProducts()
+      } else {
+        alert('Ошибка синхронизации каталога AppRoute')
+      }
+    } catch (error) {
+      console.error('Failed to sync AppRoute:', error)
+      alert('Ошибка синхронизации каталога AppRoute')
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -138,8 +161,11 @@ export default function AdminProductsPage() {
           <p className="text-muted">Управление каталогом товаров</p>
         </div>
         <div className="flex gap-3">
+          <button onClick={handleSyncApproute} disabled={syncing} className="btn btn-secondary">
+            {syncing ? 'Синхронизация…' : 'Синхронизировать AppRoute'}
+          </button>
           <button onClick={handleImport} className="btn btn-secondary">
-            Импорт из AppRoute
+            Импорт (все поставщики)
           </button>
           <Link href="/admin/products/new" className="btn btn-primary">
             Создать товар
