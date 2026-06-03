@@ -1,60 +1,93 @@
-// Клиент Dessly API (поставщик отправки игр / гифтов).
-// Документация: https://desslyhub.readme.io/reference/introduction
+// Клиент Dessly API (поставщик отправки игр / гифтов в Steam).
+// Документация: https://desslyhub.readme.io/ (живая дока, сверено в Блоке DSL-0)
 //
-// Эндпоинты (по llms.txt, база — /api/v1):
-//   GET  /api/v1/steam/games                 — список игр Steam для покупки
-//   GET  /api/v1/steam/games/{app_id}        — издания игры по app_id
-//   POST /api/v1/steam/gift                  — покупка/отправка игры гифтом
-//   POST /api/v1/service/steam/topup/check_login — проверка возможности пополнения по логину
-//   POST /api/v1/steam/refill                — пополнение Steam-аккаунта
-//   GET  /api/v1/status/{transaction_id}     — статус транзакции
-//   PUT  /api/v1/merchants/balance           — баланс мерчанта
+// РЕАЛЬНЫЙ контракт (НЕ старый /api/v1/steam/* из llms.txt-индекса):
+//   База:    https://desslyhub.com
+//   Авторизация: заголовок  apikey: <key>   (НЕ Bearer)
+//   GET  /api/v1/service/steamgift/games                 — список игр { games: [{ name, appid }] }
+//   GET  /api/v1/service/steamgift/games/{app_id}        — издания/регионы игры
+//        → { game: [{ edition, package_id, regions_info: [{ region, discount, price, price_original }] }] }
+//   POST /api/v1/service/steamgift/sendgames             — покупка/отправка гифта
+//        тело: { invite_url, package_id, region, reference? } → { transaction_id, status, error_code }
+//   GET  /api/v1/merchants/transaction/{id}/status       — статус транзакции { status } | { error_code }
+//   GET  /api/v1/merchants/balance                       — баланс мерчанта { balance: "1.0000" }
 //
-// Режимы: если задан DESSLY_API_KEY (+ опц. DESSLY_BASE_URL) — боевой режим (Bearer-токен),
-// иначе мок из src/data/catalog.json. Форма ответов сохраняется при переключении.
+// ВАЖНО: Dessly отдаёт ошибки В ТЕЛЕ как { error_code: -N } даже при HTTP 200 (см. liveRequest).
+// Статусы: success | pending | failed | cancelled (failed/cancelled → деньги возвращены поставщиком).
 //
-// TODO: вставить токен — заполнить DESSLY_API_KEY в .env.local (ключ предоставит заказчик).
-//       При необходимости уточнить схему авторизации (Bearer vs X-API-Key) по документации.
+// Режимы: если задан DESSLY_API_KEY — боевой режим (apikey-заголовок), иначе мок из catalog.json.
+// Форма публичных ответов сохраняется при переключении мок↔бой.
 
 import catalog from '@/data/catalog.json'
 
-const DEFAULT_BASE_URL = 'https://api.desslyhub.com' // TODO: уточнить реальный base URL у поставщика
+const DEFAULT_BASE_URL = 'https://desslyhub.com'
 
 const PLACEHOLDER_VALUES = new Set(['', 'your_dessly_api_key', 'TODO', 'changeme'])
 
+// ============================================================
+// Публичные типы
+// ============================================================
+
 export interface DesslyGame {
+  /** app_id игры в Steam (строкой). */
   id: string
   name: string
-  price: number // USD
+  /** Числовой appid из ответа Dessly (для getGame). */
+  appid: number
+  /** Цена в мок-режиме (из catalog.json). Боевой `games` цену НЕ отдаёт — берётся из getGame по региону. */
+  price: number
   currency: string
   platform: string
   inStock: boolean
 }
 
+/** Цена издания в конкретном регионе (regions_info[]). */
+export interface DesslyRegionPrice {
+  region: string
+  /** Финальная цена (вкл. скидки/комиссии), как отдаёт Dessly (число). */
+  price: number
+  /** Цена до скидки. */
+  priceOriginal: number
+  /** Скидка (как отдаёт Dessly). */
+  discount: number
+}
+
+/** Издание игры (элемент массива `game[]`). */
+export interface DesslyEdition {
+  edition: string
+  packageId: number
+  regions: DesslyRegionPrice[]
+}
+
+export type DesslyGiftStatus = 'pending' | 'sent' | 'failed'
+
 export interface DesslyGiftRequest {
-  gameId: string
-  /**
-   * Ссылка-приглашение Steam получателя (формат https://s.team/p/...). Именно по ней Dessly
-   * отправляет гифт (см. флоу send-gift). Поле названо recipient для обратной совместимости.
-   */
-  recipient: string
-  referenceId: string
-  /** Регион аккаунта получателя (RU/CN/KR/ID/VN/IN/...). Опционально — зависит от издания. */
-  region?: string
-  /** Идентификатор издания игры (sub/edition), если у игры несколько изданий. */
-  edition?: string
+  /** Ссылка-приглашение Steam получателя (https://s.team/p/... | steamcommunity.com/p/...). */
+  inviteUrl: string
+  /** package_id издания (из getGame). */
+  packageId: number
+  /** Регион аккаунта получателя (RU/KZ/...). */
+  region: string
+  /** Опциональный идентификатор на нашей стороне (идемпотентность/трекинг). */
+  reference?: string
+}
+
+export interface DesslyGiftResponse {
+  transactionId: string
+  status: DesslyGiftStatus
+  giftLink?: string
+  message?: string
+  /** Сырой error_code от Dessly (если был). */
+  errorCode?: number
 }
 
 // Валидатор ссылки-приглашения Steam вынесен в client-safe модуль (без process.env/catalog),
 // чтобы фолбэк-экран отправки игры (клиентский компонент) не тянул серверный клиент в бандл.
 export { STEAM_INVITE_RE, isSteamInviteUrl } from './dessly-gift'
 
-export interface DesslyGiftResponse {
-  transactionId: string
-  status: 'pending' | 'sent' | 'failed'
-  giftLink?: string
-  message?: string
-}
+// ============================================================
+// Конфиг / режим
+// ============================================================
 
 function baseUrl(): string {
   return (process.env.DESSLY_BASE_URL || DEFAULT_BASE_URL).trim().replace(/\/+$/, '')
@@ -72,14 +105,59 @@ export function isLiveMode(): boolean {
   return !PLACEHOLDER_VALUES.has(key) && key.length > 0
 }
 
+// ============================================================
+// Ошибки и коды
+// ============================================================
+
+/** Карта error_code → человекочитаемое сообщение (по странице Error Codes). */
+const DESSLY_ERROR_MESSAGES: Record<number, string> = {
+  [-1]: 'Внутренняя ошибка сервиса Dessly',
+  [-2]: 'Недостаточно средств на балансе поставщика',
+  [-3]: 'Некорректная сумма',
+  [-4]: 'Некорректное тело запроса',
+  [-5]: 'Доступ запрещён (проверьте apikey)',
+  [-51]: 'Некорректная ссылка для добавления в друзья',
+  [-52]: 'Некорректный App ID',
+  [-53]: 'Информация об игре не найдена',
+  [-54]: 'У получателя нет основной игры',
+  [-55]: 'У получателя уже есть эта игра',
+  [-56]: 'Не удалось добавить получателя в друзья',
+  [-57]: 'Некорректно указан регион покупателя',
+  [-58]: 'Регион получателя недоступен для гифта',
+  [-59]: 'Пользователь не добавил/удалил бота из списка друзей',
+  [-100]: 'Некорректный логин Steam',
+  [-120]: 'Некорректное значение валюты',
+  [-121]: 'Валюта не поддерживается',
+  [-151]: 'Некорректный ID транзакции',
+  [-152]: 'Транзакция не найдена',
+  [-153]: 'Не указан номер страницы',
+  [-200]: 'Мобильная игра не найдена',
+  [-201]: 'Позиция мобильной игры не найдена',
+  [-202]: 'Источник варианта не найден',
+  [-300]: 'Ваучер не найден',
+  [-301]: 'Ваучер недоступен',
+}
+
+export function desslyErrorMessage(code: number): string {
+  return DESSLY_ERROR_MESSAGES[code] || `Ошибка Dessly (код ${code})`
+}
+
 export class DesslyError extends Error {
+  /** HTTP-статус (или 0 при сетевой ошибке, 502 при ошибке в теле). */
   status: number
-  constructor(message: string, status: number) {
+  /** Сырой error_code Dessly, если ошибка пришла в теле ответа. */
+  code?: number
+  constructor(message: string, status: number, code?: number) {
     super(message)
     this.name = 'DesslyError'
     this.status = status
+    this.code = code
   }
 }
+
+// ============================================================
+// Низкоуровневый HTTP
+// ============================================================
 
 async function liveRequest<T>(
   path: string,
@@ -87,7 +165,8 @@ async function liveRequest<T>(
 ): Promise<T> {
   const method = opts.method || 'GET'
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${apiKey()}`,
+    // Реальная авторизация Dessly — заголовок apikey (НЕ Authorization: Bearer).
+    apikey: apiKey(),
     Accept: 'application/json',
   }
   let body: string | undefined
@@ -104,9 +183,45 @@ async function liveRequest<T>(
   }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new DesslyError(`Dessly API error ${res.status}: ${text.slice(0, 200)}`, res.status)
+    // Попробуем достать error_code даже из не-2xx тела.
+    let code: number | undefined
+    try {
+      code = (JSON.parse(text) as { error_code?: number })?.error_code
+    } catch {
+      /* not json */
+    }
+    throw new DesslyError(
+      code != null ? desslyErrorMessage(code) : `Dessly API error ${res.status}: ${text.slice(0, 200)}`,
+      res.status,
+      code
+    )
   }
-  return (await res.json()) as T
+
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
+  // КЛЮЧЕВОЕ: Dessly кладёт error_code в тело даже при HTTP 200. error_code < 0 → ошибка.
+  const ec = json?.error_code
+  if (typeof ec === 'number' && ec < 0) {
+    throw new DesslyError(desslyErrorMessage(ec), 502, ec)
+  }
+  return json as T
+}
+
+// ============================================================
+// Нормализация / маппинг
+// ============================================================
+
+function toNum(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+/** Маппинг строкового статуса Dessly → наш статус выдачи. */
+function mapStatus(s: unknown): DesslyGiftStatus {
+  const v = String(s ?? '').toLowerCase()
+  if (v === 'success') return 'sent'
+  if (v === 'pending') return 'pending'
+  // failed, cancelled, неизвестное → провал (деньги у поставщика возвращены).
+  return 'failed'
 }
 
 // ---- Мок-данные из catalog.json ----
@@ -115,6 +230,7 @@ function mockGames(): DesslyGame[] {
   return catalog.desslyGames.map((g) => ({
     id: g.id,
     name: g.name,
+    appid: hashToAppid(g.id),
     price: g.price,
     currency: g.currency,
     platform: g.platform,
@@ -122,97 +238,168 @@ function mockGames(): DesslyGame[] {
   }))
 }
 
+/** Детерминированный «appid»/«package_id» для мок-режима (стабильный по id игры). */
+function hashToAppid(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
+  return (h % 9_000_000) + 1_000_000
+}
+
 // ============================================================
 // Публичные методы
 // ============================================================
 
-/** Список игр, доступных для отправки гифтом. */
+/** Список игр, доступных для отправки гифтом. GET /api/v1/service/steamgift/games */
 export async function listGames(): Promise<DesslyGame[]> {
   if (isLiveMode()) {
-    // Боевой ответ нормализуется к DesslyGame[]; уточнить маппинг полей по факту получения ключа.
-    const data = await liveRequest<{ items?: unknown[] }>('/api/v1/steam/games')
-    const items = (data.items ?? (Array.isArray(data) ? data : [])) as Array<Record<string, unknown>>
-    return items.map((g) => ({
-      id: String(g.id ?? g.app_id ?? ''),
-      name: String(g.name ?? ''),
-      price: Number(g.price ?? 0),
-      currency: String(g.currency ?? 'USD'),
-      platform: String(g.platform ?? 'Steam'),
-      inStock: g.inStock !== false,
-    }))
+    const data = await liveRequest<{ games?: Array<Record<string, unknown>> }>(
+      '/api/v1/service/steamgift/games'
+    )
+    const games = Array.isArray(data.games) ? data.games : []
+    return games.map((g) => {
+      const appid = toNum(g.appid)
+      return {
+        id: String(appid || g.appid || ''),
+        name: String(g.name ?? ''),
+        appid,
+        // Боевой `games` цену не отдаёт — она зависит от региона/издания (см. getGame).
+        price: 0,
+        currency: 'USD',
+        platform: 'Steam',
+        inStock: true,
+      }
+    })
   }
   return mockGames()
 }
 
-export async function getGame(id: string): Promise<DesslyGame | null> {
+/**
+ * Издания и региональные цены игры по app_id.
+ * GET /api/v1/service/steamgift/games/{app_id}
+ * → { game: [{ edition, package_id, regions_info: [{ region, discount, price, price_original }] }] }
+ */
+export async function getGame(appId: string | number): Promise<DesslyEdition[]> {
   if (isLiveMode()) {
-    const g = await liveRequest<Record<string, unknown>>(`/api/v1/steam/games/${encodeURIComponent(id)}`)
-    if (!g) return null
-    return {
-      id: String(g.id ?? g.app_id ?? id),
-      name: String(g.name ?? ''),
-      price: Number(g.price ?? 0),
-      currency: String(g.currency ?? 'USD'),
-      platform: String(g.platform ?? 'Steam'),
-      inStock: g.inStock !== false,
-    }
+    const data = await liveRequest<{ game?: Array<Record<string, unknown>> }>(
+      `/api/v1/service/steamgift/games/${encodeURIComponent(String(appId))}`
+    )
+    const editions = Array.isArray(data.game) ? data.game : []
+    return editions.map((e) => ({
+      edition: String(e.edition ?? ''),
+      packageId: toNum(e.package_id),
+      regions: (Array.isArray(e.regions_info) ? e.regions_info : []).map(
+        (r: Record<string, unknown>) => ({
+          region: String(r.region ?? '').toUpperCase(),
+          price: toNum(r.price),
+          priceOriginal: toNum(r.price_original),
+          discount: toNum(r.discount),
+        })
+      ),
+    }))
   }
-  return mockGames().find((g) => g.id === id) ?? null
+  // Мок: одно издание со всеми регионами по цене из catalog.json.
+  // Резолвим товары каталога и любой id по конвенции dessly_* (так их сидит seed.mjs:
+  // denomination_id = id игры вида dessly_<game>). Неизвестный app_id → пусто («игра не найдена»).
+  const key = String(appId)
+  const g = mockGames().find((x) => x.id === key || x.appid === Number(appId))
+  const known = g != null || key.startsWith('dessly_')
+  if (!known) return []
+  const price = g?.price ?? 19.99
+  const regions = ['RU', 'KZ', 'UA', 'TR', 'CN', 'KR', 'ID', 'VN', 'IN'].map((region) => ({
+    region,
+    price,
+    priceOriginal: price,
+    discount: 0,
+  }))
+  return [{ edition: 'Standard', packageId: hashToAppid(key), regions }]
 }
 
-/** Отправка игры гифтом (POST /api/v1/steam/gift). */
+/**
+ * Разрешает package_id (и цену) для отправки гифта: по app_id игры, региону и (опц.) названию издания.
+ * Возвращает null, если издание/регион недоступны. Используется перед sendGift в потоке выдачи.
+ */
+export async function resolvePackage(
+  appId: string | number,
+  region: string,
+  editionName?: string
+): Promise<{ packageId: number; price: number; region: string; edition: string } | null> {
+  const editions = await getGame(appId)
+  if (!editions.length) return null
+  const wantRegion = String(region || '').toUpperCase()
+  const wantEdition = (editionName || '').trim().toLowerCase()
+
+  // Выбор издания: по имени (если задано), иначе первое.
+  const edition =
+    (wantEdition && editions.find((e) => e.edition.toLowerCase() === wantEdition)) || editions[0]
+  if (!edition || !edition.packageId) return null
+
+  const rp =
+    edition.regions.find((r) => r.region === wantRegion) || (wantRegion ? undefined : edition.regions[0])
+  if (!rp) return null
+
+  return { packageId: edition.packageId, price: rp.price, region: rp.region, edition: edition.edition }
+}
+
+/**
+ * Отправка игры гифтом. POST /api/v1/service/steamgift/sendgames
+ * Тело: { invite_url, package_id, region, reference? }.
+ */
 export async function sendGift(req: DesslyGiftRequest): Promise<DesslyGiftResponse> {
   if (isLiveMode()) {
-    // TODO: подтвердить точные имена полей по боевой доке Dessly при получении доступа
-    // (region/edition/sub_id могут называться иначе). Базовые app_id/steam invite/reference_id — по llms.txt.
-    const data = await liveRequest<Record<string, unknown>>('/api/v1/steam/gift', {
-      method: 'POST',
-      body: {
-        app_id: req.gameId,
-        recipient: req.recipient, // Steam Invite URL
-        reference_id: req.referenceId,
-        ...(req.region ? { region: req.region } : {}),
-        ...(req.edition ? { sub_id: req.edition } : {}),
-      },
-    })
+    const data = await liveRequest<Record<string, unknown>>(
+      '/api/v1/service/steamgift/sendgames',
+      {
+        method: 'POST',
+        body: {
+          invite_url: req.inviteUrl,
+          // OpenAPI Dessly типизирует package_id как string (даже при числовых значениях),
+          // а -4 «Incorrect request body» — реальный код ошибки → шлём строкой во избежание отказа.
+          package_id: String(req.packageId),
+          region: req.region,
+          ...(req.reference ? { reference: req.reference } : {}),
+        },
+      }
+    )
     return {
-      transactionId: String(data.transaction_id ?? data.transactionId ?? ''),
-      status: (data.status as DesslyGiftResponse['status']) ?? 'pending',
-      giftLink: data.gift_link as string | undefined,
+      transactionId: String(data.transaction_id ?? ''),
+      status: mapStatus(data.status),
+      giftLink: (data.gift_link as string | undefined) ?? undefined,
       message: data.message as string | undefined,
+      errorCode: typeof data.error_code === 'number' ? data.error_code : undefined,
     }
   }
   // Мок: гифт «отправлен».
+  const ref = req.reference || `pkg${req.packageId}`
   return {
     transactionId: `dessly-${Date.now().toString(36)}`,
     status: 'sent',
-    giftLink: `https://store.steampowered.com/gift/mock-${req.referenceId}`,
+    giftLink: `https://store.steampowered.com/gift/mock-${ref}`,
   }
 }
 
-/** Статус транзакции (GET /api/v1/status/{transaction_id}). */
+/**
+ * Статус транзакции. GET /api/v1/merchants/transaction/{transaction_id}/status
+ * → { status } | { error_code }.
+ */
 export async function getTransactionStatus(transactionId: string): Promise<DesslyGiftResponse> {
   if (isLiveMode()) {
     const data = await liveRequest<Record<string, unknown>>(
-      `/api/v1/status/${encodeURIComponent(transactionId)}`
+      `/api/v1/merchants/transaction/${encodeURIComponent(transactionId)}/status`
     )
     return {
       transactionId,
-      status: (data.status as DesslyGiftResponse['status']) ?? 'pending',
-      giftLink: data.gift_link as string | undefined,
+      status: mapStatus(data.status),
       message: data.message as string | undefined,
     }
   }
   return { transactionId, status: 'sent' }
 }
 
-/** Баланс мерчанта (PUT /api/v1/merchants/balance). */
+/** Баланс мерчанта. GET /api/v1/merchants/balance → { balance: "1.0000" }. */
 export async function getMerchantBalance(): Promise<{ balance: number; currency: string }> {
   if (isLiveMode()) {
-    const data = await liveRequest<Record<string, unknown>>('/api/v1/merchants/balance', {
-      method: 'PUT',
-    })
-    return { balance: Number(data.balance ?? 0), currency: String(data.currency ?? 'USD') }
+    const data = await liveRequest<Record<string, unknown>>('/api/v1/merchants/balance')
+    return { balance: toNum(data.balance), currency: 'USD' }
   }
   return { balance: 1000, currency: 'USD' }
 }

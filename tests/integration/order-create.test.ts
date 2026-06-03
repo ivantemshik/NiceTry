@@ -353,7 +353,8 @@ describe('Сбой выдачи у поставщика → возврат на 
 describe('Dessly — отправка игры гифтом (Блок B3)', () => {
   // Seed-хелпер: реальный dessly-товар в БД (как сидит seed.mjs: denomination_id = id игры).
   async function seedDesslyProduct(): Promise<any> {
-    const gameId = `vt_game_${randomUUID().slice(0, 8)}`
+    // denomination_id = id игры по конвенции dessly_* (как сидит seed.mjs) — резолвится в package_id.
+    const gameId = `dessly_vt_${randomUUID().slice(0, 8)}`
     const { data, error } = await retry(() =>
       admin
         .from('products')

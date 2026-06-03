@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   listGames,
   getGame,
+  resolvePackage,
   sendGift,
   getTransactionStatus,
   getMerchantBalance,
@@ -9,7 +10,7 @@ import {
 } from '@/lib/dessly'
 import { randomUUID } from 'crypto'
 
-// Мок-режим Dessly (DESSLY_API_KEY — плейсхолдер).
+// Мок-режим Dessly (DESSLY_API_KEY — плейсхолдер / форс-мок).
 
 describe('Dessly: режим', () => {
   it('по умолчанию мок-режим (ключ — плейсхолдер)', () => {
@@ -17,32 +18,47 @@ describe('Dessly: режим', () => {
   })
 })
 
-describe('Dessly: каталог игр', () => {
-  it('listGames возвращает игры', async () => {
+describe('Dessly: каталог игр (мок)', () => {
+  it('listGames возвращает игры с appid', async () => {
     const games = await listGames()
     expect(games.length).toBeGreaterThan(0)
-    expect(games.find((g) => g.id === 'dessly_cyberpunk_2077')).toBeDefined()
+    const cp = games.find((g) => g.id === 'dessly_cyberpunk_2077')
+    expect(cp).toBeDefined()
+    expect(cp!.appid).toBeGreaterThan(0)
   })
 
-  it('getGame по id', async () => {
-    const g = await getGame('dessly_elden_ring')
-    expect(g).not.toBeNull()
-    expect(g!.name).toBe('Elden Ring')
-    expect(g!.price).toBeGreaterThan(0)
+  it('getGame возвращает издание с package_id и регионами', async () => {
+    const editions = await getGame('dessly_elden_ring')
+    expect(editions.length).toBeGreaterThan(0)
+    expect(editions[0].packageId).toBeGreaterThan(0)
+    expect(editions[0].regions.find((r) => r.region === 'RU')).toBeDefined()
   })
 
-  it('getGame несуществующей игры → null', async () => {
-    expect(await getGame('nope')).toBeNull()
+  it('getGame несуществующей игры → пустой массив', async () => {
+    expect(await getGame('nope')).toEqual([])
+  })
+
+  it('resolvePackage по id игры и региону → packageId + цена', async () => {
+    const pkg = await resolvePackage('dessly_elden_ring', 'RU')
+    expect(pkg).not.toBeNull()
+    expect(pkg!.packageId).toBeGreaterThan(0)
+    expect(pkg!.price).toBeGreaterThan(0)
+    expect(pkg!.region).toBe('RU')
   })
 })
 
-describe('Dessly: отправка гифта', () => {
+describe('Dessly: отправка гифта (мок)', () => {
   it('sendGift возвращает ссылку на гифт и статус sent', async () => {
-    const referenceId = randomUUID()
-    const res = await sendGift({ gameId: 'dessly_cyberpunk_2077', recipient: 'steamuser', referenceId })
+    const reference = randomUUID()
+    const res = await sendGift({
+      inviteUrl: 'https://s.team/p/abcd-1234',
+      packageId: 555,
+      region: 'RU',
+      reference,
+    })
     expect(res.status).toBe('sent')
     expect(res.transactionId).toBeTruthy()
-    expect(res.giftLink).toContain(referenceId)
+    expect(res.giftLink).toContain(reference)
   })
 
   it('getTransactionStatus возвращает статус', async () => {

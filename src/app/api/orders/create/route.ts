@@ -10,7 +10,7 @@ import {
   AppRouteError,
   AppRouteStatusCode,
 } from '@/lib/approute'
-import { sendGift, getTransactionStatus, isSteamInviteUrl, DesslyError } from '@/lib/dessly'
+import { sendGift, resolvePackage, getTransactionStatus, isSteamInviteUrl, DesslyError } from '@/lib/dessly'
 import { notifyOrderDelivered } from '@/lib/telegram/notify'
 import { REFERRAL_PERCENTS } from '@/lib/constants'
 import {
@@ -381,17 +381,29 @@ async function deliverInstant(
   }
 
   // Dessly: отправка игры гифтом по ссылке-приглашению Steam.
-  // ID игры у Dessly хранится в denomination_id (БД-каталог) / supplier_id (фолбэк-каталог).
+  // ID игры (app_id) у Dessly хранится в denomination_id (БД-каталог) / supplier_id (фолбэк-каталог).
   const desslyGameId = product.supplier_id || product.denomination_id || product.supplier_service_id
   if (product.supplier === 'dessly' && desslyGameId) {
-    const recipient = (formData?.recipient || formData?.account_reference || '').trim()
-    const region = formData?.region || undefined
-    const edition = formData?.edition || formData?.sub_id || undefined
+    // invite_url принимаем под ключом recipient (исторически) или invite_url/account_reference.
+    const inviteUrl = (formData?.recipient || formData?.invite_url || formData?.account_reference || '').trim()
+    const region = (formData?.region || 'RU').toUpperCase()
+    const editionName = formData?.edition || undefined
     // Валидация ссылки ДО обращения к поставщику: невалидный invite → провал → возврат на баланс.
-    if (!isSteamInviteUrl(recipient)) {
+    if (!isSteamInviteUrl(inviteUrl)) {
       throw new DesslyError('Некорректная ссылка-приглашение Steam', 400)
     }
-    let res = await sendGift({ gameId: desslyGameId, recipient, referenceId, region, edition })
+
+    // package_id: из формы (если фронт уже выбрал издание) либо резолвим по app_id+регион+издание.
+    let packageId = formData?.package_id ? Number(formData.package_id) : NaN
+    if (!Number.isFinite(packageId) || packageId <= 0) {
+      const pkg = await resolvePackage(desslyGameId, region, editionName)
+      if (!pkg) {
+        throw new DesslyError('Издание/регион недоступны для отправки гифта', 400, -58)
+      }
+      packageId = pkg.packageId
+    }
+
+    let res = await sendGift({ inviteUrl, packageId, region, reference: referenceId })
     // Отслеживание статуса: если гифт ещё в обработке — опрашиваем до терминального исхода.
     let tries = 0
     while (res.status === 'pending' && res.transactionId && tries < 10) {
@@ -399,9 +411,9 @@ async function deliverInstant(
       res = await getTransactionStatus(res.transactionId)
     }
     if (res.status === 'failed' || res.status === 'pending') {
-      throw new DesslyError(res.message || 'Gift failed', 502)
+      throw new DesslyError(res.message || 'Отправка гифта не удалась', 502, res.errorCode)
     }
-    return [res.giftLink || `Заказ отправлен: ${res.transactionId}`]
+    return [res.giftLink || `Гифт отправлен: транзакция ${res.transactionId}`]
   }
 
   // Локальные ключи (тип 1а — из файла).
