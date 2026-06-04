@@ -10,10 +10,15 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
  * легитимные ответы приложения. Повышает надёжность серверных операций при сетевых блипах.
  */
 async function retryingFetch(input: RequestInfo | URL, init?: RequestInit, attempts = 3): Promise<Response> {
+  // Service-role операции ВСЕГДА должны видеть живые данные (балансы, заказы, proxy_settings).
+  // Next.js по умолчанию кэширует GET-fetch в Data Cache — из-за этого админка пишет настройки
+  // (POST к PostgREST, не кэшируется), а витрина читает их устаревшую копию из кэша. no-store
+  // выключает кэш для всех чтений через этот клиент.
+  const noStoreInit: RequestInit = { ...init, cache: 'no-store' }
   let lastErr: unknown
   for (let i = 0; i < attempts; i++) {
     try {
-      return await fetch(input, init)
+      return await fetch(input, noStoreInit)
     } catch (e) {
       lastErr = e
       if (i < attempts - 1) await new Promise((r) => setTimeout(r, 300 * (i + 1)))

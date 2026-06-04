@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getPrice, getCount, isValidVersion, Px6Error, type ProxyVersion } from '@/lib/px6'
 import { loadProxySettings, proxyPriceRub, validateProxyRequest } from '@/lib/proxy-pricing'
 
+// Цена зависит от админских настроек (наценка/курс) и наличия у px6 — всегда живой ответ.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 /**
  * GET /api/proxy/price?version=&count=&period=&country=
  *

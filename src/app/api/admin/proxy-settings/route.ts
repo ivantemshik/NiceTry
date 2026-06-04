@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import { DEFAULT_PROXY_SETTINGS } from '@/lib/proxy-pricing'
 
+// Админка всегда читает/пишет живые настройки — без кэша роута.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 /**
  * Управление настройками прокси px6 из админки (синглтон proxy_settings, id=1).
  * Наценка / курс USD→₽ / лимиты / вкл-выкл блока покупки — НЕ хардкод, редактируются здесь.

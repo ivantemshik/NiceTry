@@ -67,7 +67,7 @@ export default function AdminSettingsPage() {
 
   const fetchProxy = async () => {
     try {
-      const res = await fetch('/api/admin/proxy-settings')
+      const res = await fetch('/api/admin/proxy-settings', { cache: 'no-store' })
       const data = await res.json()
       if (data.settings) {
         setProxy(data.settings)

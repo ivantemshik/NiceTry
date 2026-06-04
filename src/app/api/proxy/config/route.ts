@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCountry, isValidVersion, PROXY_VERSION_LABELS, Px6Error, type ProxyVersion } from '@/lib/px6'
 import { loadProxySettings } from '@/lib/proxy-pricing'
 
+// Конфиг зависит от админских настроек (proxy_settings) и наличия у px6 — всегда живой ответ.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 /**
  * GET /api/proxy/config[?version=]
  *
