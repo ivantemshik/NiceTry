@@ -20,6 +20,11 @@ interface Category {
   supplier: string
 }
 
+interface PopularGame {
+  app_id: number
+  name: string
+}
+
 export default function AdminSettingsPage() {
   const [statuses, setStatuses] = useState<UserStatus[]>([])
   const [loading, setLoading] = useState(true)
@@ -31,9 +36,18 @@ export default function AdminSettingsPage() {
   const [editingCatId, setEditingCatId] = useState<string | null>(null)
   const [editCat, setEditCat] = useState<Partial<Category>>({})
 
+  // Популярные игры: порядок выдачи в /send-game (сортировка sort=popularity).
+  const [popular, setPopular] = useState<PopularGame[]>([])
+  const [popularLoading, setPopularLoading] = useState(true)
+  const [popularSaving, setPopularSaving] = useState(false)
+  const [popularMsg, setPopularMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [newGameId, setNewGameId] = useState('')
+  const [newGameName, setNewGameName] = useState('')
+
   useEffect(() => {
     fetchStatuses()
     fetchCategories()
+    fetchPopular()
   }, [])
 
   const fetchCategories = async () => {
@@ -80,6 +94,75 @@ export default function AdminSettingsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchPopular = async () => {
+    try {
+      setPopularLoading(true)
+      const res = await fetch('/api/admin/popular-games')
+      const data = await res.json()
+      setPopular(Array.isArray(data.popular) ? data.popular : [])
+    } catch (error) {
+      console.error('Failed to fetch popular games:', error)
+    } finally {
+      setPopularLoading(false)
+    }
+  }
+
+  const savePopular = async (next: PopularGame[]) => {
+    setPopularSaving(true)
+    setPopularMsg(null)
+    try {
+      const res = await fetch('/api/admin/popular-games', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ popular: next }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setPopularMsg({ type: 'err', text: body.error || 'Не удалось сохранить' })
+        return false
+      }
+      setPopular(next)
+      setPopularMsg({ type: 'ok', text: `Сохранено: ${next.length} игр` })
+      return true
+    } catch (error) {
+      setPopularMsg({ type: 'err', text: 'Ошибка сети при сохранении' })
+      return false
+    } finally {
+      setPopularSaving(false)
+    }
+  }
+
+  const movePopular = (index: number, dir: -1 | 1) => {
+    const target = index + dir
+    if (target < 0 || target >= popular.length) return
+    const next = [...popular]
+    ;[next[index], next[target]] = [next[target], next[index]]
+    savePopular(next)
+  }
+
+  const removePopular = (index: number) => {
+    savePopular(popular.filter((_, i) => i !== index))
+  }
+
+  const addPopular = () => {
+    const appId = parseInt(newGameId.trim(), 10)
+    const name = newGameName.trim()
+    if (!appId || Number.isNaN(appId) || !name) {
+      setPopularMsg({ type: 'err', text: 'Укажите числовой app_id и название' })
+      return
+    }
+    if (popular.some((g) => g.app_id === appId)) {
+      setPopularMsg({ type: 'err', text: `app_id ${appId} уже в списке` })
+      return
+    }
+    savePopular([...popular, { app_id: appId, name }]).then((ok) => {
+      if (ok) {
+        setNewGameId('')
+        setNewGameName('')
+      }
+    })
   }
 
   const handleEdit = (status: UserStatus) => {
@@ -370,6 +453,119 @@ export default function AdminSettingsPage() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Популярные игры: порядок выдачи в /send-game */}
+      <div className="card mb-6">
+        <div className="p-6 border-b border-border">
+          <h2 className="text-[17px] font-bold text-navy">Популярные игры (Steam top)</h2>
+          <p className="text-sm text-muted mt-1">
+            Порядок популярных тайтлов в «Отправь игру» (выше в списке = популярнее). Эти игры
+            показываются первыми, остальные — по алфавиту.
+          </p>
+        </div>
+
+        <div className="p-6">
+          {popularMsg && (
+            <div className={`alert mb-4 ${popularMsg.type === 'ok' ? 'alert-success' : 'alert-error'}`}>
+              <span>{popularMsg.text}</span>
+            </div>
+          )}
+
+          {/* Добавление новой игры */}
+          <div className="flex flex-wrap items-end gap-3 mb-5">
+            <div className="flex-none w-32">
+              <label className="label">app_id</label>
+              <input
+                type="number"
+                value={newGameId}
+                onChange={(e) => setNewGameId(e.target.value)}
+                className="input"
+                placeholder="730"
+                min="1"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="label">Название</label>
+              <input
+                type="text"
+                value={newGameName}
+                onChange={(e) => setNewGameName(e.target.value)}
+                className="input"
+                placeholder="Counter-Strike 2"
+              />
+            </div>
+            <button
+              onClick={addPopular}
+              disabled={popularSaving}
+              className="btn btn-primary"
+              data-loading={popularSaving ? 'true' : undefined}
+            >
+              Добавить
+            </button>
+          </div>
+
+          {popularLoading ? (
+            <div className="loading-block">
+              <div className="spinner" />
+              <span>Загрузка списка...</span>
+            </div>
+          ) : popular.length === 0 ? (
+            <div className="empty-state">
+              <p>Список пуст. Добавьте популярные тайтлы выше.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-bg border-b border-border">
+                  <tr>
+                    <th className="text-left p-3 text-sm font-semibold text-navy w-16">#</th>
+                    <th className="text-left p-3 text-sm font-semibold text-navy">Название</th>
+                    <th className="text-left p-3 text-sm font-semibold text-navy w-28">app_id</th>
+                    <th className="text-right p-3 text-sm font-semibold text-navy w-44">Порядок</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {popular.map((game, i) => (
+                    <tr key={game.app_id} className="border-b border-border hover:bg-gray-bg">
+                      <td className="p-3 text-muted-2 font-semibold">{i + 1}</td>
+                      <td className="p-3 font-semibold text-navy">{game.name}</td>
+                      <td className="p-3 text-muted">{game.app_id}</td>
+                      <td className="p-3">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => movePopular(i, -1)}
+                            disabled={i === 0 || popularSaving}
+                            className="btn btn-sm btn-ghost"
+                            title="Выше"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            onClick={() => movePopular(i, 1)}
+                            disabled={i === popular.length - 1 || popularSaving}
+                            className="btn btn-sm btn-ghost"
+                            title="Ниже"
+                          >
+                            ↓
+                          </button>
+                          <button
+                            onClick={() => removePopular(i)}
+                            disabled={popularSaving}
+                            className="btn btn-sm btn-danger"
+                            title="Удалить"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

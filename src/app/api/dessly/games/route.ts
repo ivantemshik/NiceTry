@@ -1,56 +1,83 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { listGames, isLiveMode } from '@/lib/dessly'
-import type { DesslyGame } from '@/lib/dessly'
+import popularData from '@/data/popular-games.json'
+
+interface GameEntry {
+  app_id: number
+  name: string
+  image_url: string | null
+  image_fallback: boolean
+  popular: boolean
+}
 
 /**
  * GET /api/dessly/games
- * Живой список игр Dessly (из боевого API или мок-каталога) с поиском и пагинацией.
+ * Живой список игр Dessly с поиском, сортировкой и пагинацией.
  *
  * Query params:
- *   search  — фильтр по названию (ilike, минимум 2 символа)
- *   limit   — размер страницы (по умолчанию 100, максимум 5000)
- *   offset  — смещение (по умолчанию 0)
+ *   search  — фильтр по названию
+ *   sort    — 'popularity' (по умолчанию: популярные → алфавит) | 'name' (строго алфавит)
+ *   limit   — размер страницы (по умолчанию 100, макс 5000)
+ *   offset  — смещение
  *
- * Возвращает:
- *   { games: [{ app_id, name, image_url }], total, limit, offset, live: boolean }
- *
- * image_url — Steam header (https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/{app_id}/header.jpg)
+ * Сортировка popularity: игры из popular-games.json первыми (по рангу),
+ * остальные — по алфавиту. При поиске сортировка отключается (релевантность).
  */
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const search = (searchParams.get('search') || '').trim().toLowerCase()
-    const limit = clamp(searchParams.get('limit'), 100, 1, 5000)
-    const offset = clamp(searchParams.get('offset'), 0, 0, 50000)
+    const sp = request.nextUrl.searchParams
+    const search = (sp.get('search') || '').trim().toLowerCase()
+    const sort = (sp.get('sort') || 'popularity').toLowerCase()
+    const limit = clamp(sp.get('limit'), 100, 1, 5000)
+    const offset = clamp(sp.get('offset'), 0, 0, 50000)
 
     const games = await listGames()
 
-    // Фильтр по поиску (если есть)
-    let filtered = games
-    if (search.length >= 2) {
-      filtered = games.filter((g) => g.name.toLowerCase().includes(search))
-    } else if (search.length === 1) {
-      // Одна буква — ищем по началу названия
-      filtered = games.filter((g) => g.name.toLowerCase().startsWith(search))
+    // Строим карту популярности (app_id → rank)
+    const popRank = new Map<number, number>()
+    for (let i = 0; i < popularData.popular.length; i++) {
+      popRank.set(popularData.popular[i].app_id, i)
     }
 
-    // Пагинация
-    const total = filtered.length
-    const page = filtered.slice(offset, offset + limit)
+    // Преобразуем в GameEntry
+    let entries: GameEntry[] = games.map((g) => {
+      const appId = g.appid || Number(g.id) || 0
+      return {
+        app_id: appId,
+        name: g.name,
+        image_url: appId
+          ? `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg`
+          : null,
+        image_fallback: !appId,
+        popular: popRank.has(appId),
+      }
+    })
 
-    // Добавляем URL картинки Steam
-    const result = page.map((g) => ({
-      app_id: g.appid || Number(g.id) || 0,
-      name: g.name,
-      image_url: g.appid
-        ? `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${g.appid}/header.jpg`
-        : null,
-      // Плейсхолдер если нет картинки
-      image_fallback: !g.appid,
-    }))
+    // Поиск
+    if (search.length >= 2) {
+      entries = entries.filter((g) => g.name.toLowerCase().includes(search))
+    } else if (search.length === 1) {
+      entries = entries.filter((g) => g.name.toLowerCase().startsWith(search))
+    }
+
+    // Сортировка: при поиске — не трогаем (сохраняем порядок от Dessly),
+    // иначе — по популярности или алфавиту
+    if (sort === 'popularity' && !search) {
+      entries.sort((a, b) => {
+        const ra = popRank.get(a.app_id) ?? 999999
+        const rb = popRank.get(b.app_id) ?? 999999
+        if (ra !== rb) return ra - rb
+        return a.name.localeCompare(b.name)
+      })
+    } else if (sort === 'name' && !search) {
+      entries.sort((a, b) => a.name.localeCompare(b.name))
+    }
+
+    const total = entries.length
+    const page = entries.slice(offset, offset + limit)
 
     return NextResponse.json({
-      games: result,
+      games: page,
       total,
       limit,
       offset,
