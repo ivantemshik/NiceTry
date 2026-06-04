@@ -93,3 +93,49 @@ export interface Category {
   is_active: boolean
   sort_order: number
 }
+
+// ============================================================
+// Прокси px6 (proxy6)
+// ============================================================
+
+export interface ProxySettings {
+  markup_percent: number
+  usd_to_rub_rate: number
+  is_enabled: boolean
+  allowed_periods: number[]
+  max_count: number
+}
+
+export interface ProxyOrder {
+  id: string
+  user_id: string | null
+  order_id: string | null
+  version: 3 | 4 | 5 | 6
+  country: string
+  count: number
+  period: number
+  proxy_type?: string | null
+  price_internal: number
+  px6_price?: number | null
+  px6_currency?: 'RUB' | 'USD' | null
+  px6_order_id?: string | null
+  proxies?: ProxyItem[] | null
+  status: 'pending' | 'paid' | 'failed' | 'refunded'
+  created_at: string
+  updated_at: string
+}
+
+/** Один выданный прокси (как хранится в proxy_orders.proxies jsonb). */
+export interface ProxyItem {
+  id: string
+  ip: string
+  host: string
+  port: string
+  user: string
+  pass: string
+  type: string
+  country: string
+  date: string
+  date_end: string
+  active: boolean
+}

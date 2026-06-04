@@ -396,6 +396,53 @@ CREATE POLICY reviews_select_published ON reviews
   FOR SELECT USING (is_published = TRUE OR auth.uid() = user_id);
 
 -- ============================================
+-- ПРОКСИ px6 (proxy6) — см. migrations/2026-06-04_proxy_orders.sql (источник истины)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS proxy_orders (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID REFERENCES users(id) ON DELETE SET NULL,
+  order_id        UUID REFERENCES orders(id) ON DELETE SET NULL,
+  version         INTEGER NOT NULL CHECK (version IN (3, 4, 5, 6)),
+  country         TEXT NOT NULL,
+  count           INTEGER NOT NULL CHECK (count > 0),
+  period          INTEGER NOT NULL CHECK (period > 0),
+  proxy_type      TEXT,
+  price_internal  DECIMAL(10, 2) NOT NULL CHECK (price_internal >= 0),
+  px6_price       DECIMAL(12, 4),
+  px6_currency    TEXT CHECK (px6_currency IN ('RUB', 'USD')),
+  px6_order_id    TEXT,
+  proxies         JSONB,
+  status          TEXT NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending', 'paid', 'failed', 'refunded')),
+  idempotency_key TEXT UNIQUE,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_proxy_orders_user    ON proxy_orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_proxy_orders_status  ON proxy_orders(status);
+CREATE INDEX IF NOT EXISTS idx_proxy_orders_created ON proxy_orders(created_at DESC);
+ALTER TABLE proxy_orders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS proxy_orders_select_own ON proxy_orders;
+CREATE POLICY proxy_orders_select_own ON proxy_orders
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE TABLE IF NOT EXISTS proxy_settings (
+  id              INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  markup_percent  DECIMAL(5, 2) NOT NULL DEFAULT 30 CHECK (markup_percent >= 0),
+  usd_to_rub_rate DECIMAL(8, 2) NOT NULL DEFAULT 100 CHECK (usd_to_rub_rate > 0),
+  is_enabled      BOOLEAN NOT NULL DEFAULT TRUE,
+  allowed_periods INTEGER[] NOT NULL DEFAULT ARRAY[7, 14, 30, 90],
+  max_count       INTEGER NOT NULL DEFAULT 50 CHECK (max_count > 0),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO proxy_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+ALTER TABLE proxy_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS proxy_settings_public_read ON proxy_settings;
+CREATE POLICY proxy_settings_public_read ON proxy_settings
+  FOR SELECT USING (TRUE);
+
+-- ============================================
 -- КОММЕНТАРИИ
 -- ============================================
 

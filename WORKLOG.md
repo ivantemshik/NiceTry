@@ -7,8 +7,8 @@
 ## ТЕКУЩИЙ СТАТУС (px6 / proxy6 интеграция) — обновлено 2026-06-04
 
 **Над чем работаю:** Покупка прокси через API px6 (proxy6) прямо на главной — боевая готовность.
-**Текущий этап:** Этап 1 — клиент px6 (`src/lib/px6.ts`).
-**Следующее:** Этап 2 — миграция БД (`proxy_orders`).
+**Текущий этап:** Этап 3 — ценообразование (бек, наценка из `proxy_settings`).
+**Следующее:** Этап 4 — боевая покупка `/api/proxy/buy`.
 
 ### Архитектурные решения (зафиксировано)
 - Клиент px6 строится по образцу `src/lib/dessly.ts`: режим live включается ТОЛЬКО при валидном
@@ -49,6 +49,26 @@
 **Тесты:** `vitest run tests/integration/px6.test.ts` → 17/17 ✅. `tsc --noEmit` → чисто.
 **Примечание:** `next lint` в репо не сконфигурирован (нет .eslintrc, спрашивает интерактивно) —
 проверка качества опирается на `tsc` + `build` + `vitest`, как и для остального проекта.
+**Статус:** DONE.
+
+---
+
+## 2026-06-04 | px6 Этап 2 — Схема БД (миграция) — DONE
+
+**Что сделано:** миграция для заказов прокси и настроек прокси.
+**Файлы:**
+- `migrations/2026-06-04_proxy_orders.sql` — таблица `proxy_orders` (user_id, order_id→orders,
+  version, country, count, period, proxy_type, price_internal ₽, px6_price/px6_currency,
+  px6_order_id, proxies jsonb, status pending|paid|failed|refunded, idempotency_key UNIQUE).
+  RLS: `proxy_orders_select_own` (видишь только свои; запись — только service-role).
+  Триггер `updated_at`. Таблица `proxy_settings` (синглтон id=1): markup_percent,
+  usd_to_rub_rate, is_enabled, allowed_periods[], max_count — наценка/курс из админки, НЕ хардкод.
+  В конце `NOTIFY pgrst, 'reload schema';`. Идемпотентна (IF NOT EXISTS / ON CONFLICT).
+- `supabase_schema.sql` — те же таблицы добавлены для свежей установки (источник истины — миграция).
+- `src/types/index.ts` — типы `ProxySettings`, `ProxyOrder`, `ProxyItem`.
+
+**Тесты:** `tsc --noEmit` → чисто. Миграция на боевой НЕ применялась (по правилам — это делает владелец).
+**Нужно от владельца:** применить миграцию + `NOTIFY pgrst, 'reload schema';`, задать наценку.
 **Статус:** DONE.
 
 ---
