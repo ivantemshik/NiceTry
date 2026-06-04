@@ -4,6 +4,55 @@
 
 ---
 
+## ТЕКУЩИЙ СТАТУС (px6 / proxy6 интеграция) — обновлено 2026-06-04
+
+**Над чем работаю:** Покупка прокси через API px6 (proxy6) прямо на главной — боевая готовность.
+**Текущий этап:** Этап 1 — клиент px6 (`src/lib/px6.ts`).
+**Следующее:** Этап 2 — миграция БД (`proxy_orders`).
+
+### Архитектурные решения (зафиксировано)
+- Клиент px6 строится по образцу `src/lib/dessly.ts`: режим live включается ТОЛЬКО при валидном
+  `PROXY6_API_KEY` (иначе мок-режим, та же форма ответов — фолбэк не бьёт боевыми по покупателям).
+  Форс-мок: `NICETRY_FORCE_SUPPLIER_MOCK=1` (как у Dessly) — для герметичности тестов.
+- Деньги/баланс: повторяем флоу `src/app/api/orders/create/route.ts` — CAS-списание
+  (`.eq('balance', ...).gte(...)`), запись в `balance_transactions`, заказ в `orders` (status paid/cancelled).
+  Прокси — отдельная таблица `proxy_orders` (+ `proxies` jsonb), связана с `orders` для единой истории.
+- Цена: `getPrice` у px6 (RUB/USD) → наценка из БД `proxy_settings` (admin-editable, НЕ хардкод) →
+  формула `ceil(...)` как в `lib/catalog.ts priceRub`. Считается ТОЛЬКО на беке перед покупкой.
+- Идемпотентность: ключ идемпотентности кладём в `descr` при `buy` + UNIQUE на `proxy_orders.idempotency_key`.
+
+### Нужно от владельца (накапливается)
+- `PROXY6_API_KEY` — боевой ключ из кабинета px6 (раздел API). Без него — мок-режим.
+- Пополнить баланс px6 (иначе `buy` вернёт error 400 «недостаточно средств»).
+- Применить миграцию `proxy_orders` на боевой Supabase + `NOTIFY pgrst, 'reload schema';`.
+- Задать наценку прокси в админке (`proxy_settings.markup_percent`), курс USD→RUB при необходимости.
+- Свериться с `proxy6_api.pdf` (PDF-парсинг в песочнице недоступен) — контракт реализован по
+  публичной доке px6.me/developers; проверить имена полей ответа `getproxy`/`buy` 1:1 с PDF.
+
+---
+
+## 2026-06-04 | px6 Этап 1 — Клиент px6 (`src/lib/px6.ts`) — DONE
+
+**Что сделано:** типизированный клиент px6 по образцу `lib/dessly.ts`.
+**Файлы:**
+- `src/lib/px6.ts` — методы `getCountry`, `getCount`, `getPrice`, `buy`, `getProxy`, `check`,
+  `prolong`, `remove`. Единый `call()`: URL `…/api/{key}/{method}/?{params}`, разбор
+  `status:"yes"|"no"`, маппинг `error_id`→текст (`PX6_ERROR_MESSAGES`), throttle ≤3 req/sec
+  (скользящее окно `acquireSlot`), ретраи на 429/5xx/сетевые, таймаут через AbortController.
+  Мок-режим (та же форма) при отсутствии ключа / форс-моке. `Px6Error`, `isPx6InsufficientFunds`
+  (error_id 400). Версии 3/4/5/6 (`PROXY_VERSIONS`, `PROXY_VERSION_LABELS`).
+- `tests/integration/px6.test.ts` — 17 тестов: режим, валидация, мок-методы, боевой HTTP (stub
+  fetch): парсинг getPrice/buy, status:no, нехватка средств (400), 429-ретрай, таймаут, 5xx.
+- `.env.local` — вписан боевой `PROXY6_API_KEY` + `PROXY6_API_BASE` (НЕ коммитится).
+- `.env.example` — плейсхолдеры `PROXY6_API_KEY` / `PROXY6_API_BASE` с пояснением.
+
+**Тесты:** `vitest run tests/integration/px6.test.ts` → 17/17 ✅. `tsc --noEmit` → чисто.
+**Примечание:** `next lint` в репо не сконфигурирован (нет .eslintrc, спрашивает интерактивно) —
+проверка качества опирается на `tsc` + `build` + `vitest`, как и для остального проекта.
+**Статус:** DONE.
+
+---
+
 ## 2026-05-31 | Этап 0: Подготовка
 
 ### Выполнено
