@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
-interface Mailing { id: string; title: string; message: string; segment: string; status: string; sent_count: number; created_at: string }
+interface Mailing { id: string; title: string; message: string; segment: string; status: string; sent_count: number; failed_count?: number; total_count?: number; created_at: string }
 
 export default function AdminMailingsPage() {
   const [mailings, setMailings] = useState<Mailing[]>([])
@@ -51,7 +51,14 @@ export default function AdminMailingsPage() {
     setSending(false)
   }
 
-  const statusLabel = (s: string) => ({ draft: 'Черновик', scheduled: 'Запланирована', sending: 'Отправляется', completed: 'Завершена' } as Record<string, string>)[s] || s
+  const statusLabel = (s: string) => ({ draft: 'Черновик', scheduled: 'Запланирована', queued: 'В очереди', sending: 'Отправляется', completed: 'Завершена', failed: 'Ошибка' } as Record<string, string>)[s] || s
+
+  // Автообновление, пока есть рассылки в процессе (queued/sending) — чтобы видеть прогресс.
+  useEffect(() => {
+    if (!mailings.some((m) => m.status === 'queued' || m.status === 'sending')) return
+    const t = setInterval(fetchMailings, 5000)
+    return () => clearInterval(t)
+  }, [mailings])
 
   if (loading) return <div className="p-8">Загрузка...</div>
 
@@ -84,6 +91,8 @@ export default function AdminMailingsPage() {
                 <th>Название</th>
                 <th>Статус</th>
                 <th>Отправлено</th>
+                <th>Ошибки</th>
+                <th>Всего</th>
                 <th>Дата</th>
               </tr>
             </thead>
@@ -93,6 +102,8 @@ export default function AdminMailingsPage() {
                   <td className="font-semibold">{m.title}</td>
                   <td>{statusLabel(m.status)}</td>
                   <td>{m.sent_count}</td>
+                  <td>{m.failed_count ?? 0}</td>
+                  <td>{m.total_count ?? '—'}</td>
                   <td className="text-muted text-sm">{new Date(m.created_at).toLocaleString()}</td>
                 </tr>
               ))}
