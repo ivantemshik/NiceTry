@@ -134,8 +134,60 @@ NiceTry/
   - Сейчас card/crypto → `501`; оплата с внутреннего баланса работает
 - [ ] **Пост-MVP** — крипто-оплата
 
-> Тесты: 236 зелёных (юнит + интеграция на моках + боевой Supabase + смоук).
+> Тесты: юнит + интеграция на моках + боевой Supabase + смоук.
 > Подробности по этапам — в `WORKLOG.md`, отчёты — `REVIEW_REPORT.md` и `TEST_REPORT.md`.
+
+## Пакет исправлений (2026-06-04) — 7 задач
+
+Подробности и причины каждого бага — в `WORKLOG.md` (раздел «ПАКЕТ ИСПРАВЛЕНИЙ»).
+
+- **Задача 4 — schema cache `products.categories`:** PATCH товара слал в Supabase весь объект
+  (включая вложенный `categories`). Решение: whitelist колонок в PATCH, отказ от FK-embed в
+  пользу ручного маппинга категорий. Миграция: `migrations/2026-06-04_products_category_fk_reload.sql`.
+- **Задача 3 — фильтр по категориям:** публичный `/api/products` падал на FK-embed и уходил в
+  mock-фолбэк. Решение: ручной маппинг категорий, фильтр `category_id` на реальных данных.
+- **Задача 6 — цена Dessly = 0:** цена берётся из издания/региона (`getGame`/`resolvePackage`),
+  не из списка игр; guard не проводит заказ с ценой 0/null. Курс/наценка — из админки.
+- **Задача 7 — ложный `failed` при удачной выдаче:** polling статуса Dessly с backoff (~30с),
+  paid/executing/pending = «в процессе»; по таймауту заказ остаётся в работе, а не `failed`.
+  Фоновый дозабор: cron `/api/dessly/cron/reconcile`.
+- **Задача 1 — скидка по промокоду:** промокод терялся при переходе корзина→чекаут. Решение:
+  промокод в контексте `useCart` (persist), чекаут шлёт `promo_code` (сервер — источник истины).
+- **Задача 2 — рассылка не уходит:** была fire-and-forget на serverless + баг пагинации + нет
+  rate-limit. Решение: очередь + резюмируемая rate-limited отправка (`lib/telegram/mailing.ts`) +
+  cron `/api/telegram/cron/mailings`. Миграция: `migrations/2026-06-04_mailings_queue.sql`.
+
+### Миграции БД (применить service-role'ом, НЕ автоматически)
+
+```bash
+# через Supabase SQL editor или psql ($SUPABASE_DB_URL)
+psql "$SUPABASE_DB_URL" -f migrations/2026-06-04_products_category_fk_reload.sql
+psql "$SUPABASE_DB_URL" -f migrations/2026-06-04_mailings_queue.sql
+psql "$SUPABASE_DB_URL" -f migrations/2026-06-03_reviews_unique_order.sql
+```
+После DDL каждый файл делает `NOTIFY pgrst, 'reload schema';` — schema cache PostgREST обновится.
+
+### Cron-задачи (Vercel Cron, см. `vercel.json`)
+
+| Путь | Расписание | Назначение |
+|------|-----------|-----------|
+| `/api/telegram/cron/review-requests` | `0 9 * * *` | Запрос отзыва после выдачи |
+| `/api/dessly/cron/reconcile` | `*/10 * * * *` | Дозабор зависших Dessly-заказов |
+| `/api/telegram/cron/mailings` | `*/5 * * * *` | Гарантированная дорассылка |
+
+Авторизация cron: заголовок `Authorization: Bearer $CRON_SECRET` или служебный `x-vercel-cron`.
+
+## Нужно от владельца
+
+1. **Применить SQL-миграции** (см. выше) на боевой Supabase — без них:
+   - редактирование товара может падать (Задача 4);
+   - рассылки не получат счётчики/статусы queued/failed (Задача 2).
+2. **Боевые ключи поставщиков** (env): `DESSLY_API_KEY` + `DESSLY_API_SECRET` (оба — иначе мок),
+   `APPROUTE_*`. Без них клиенты работают на моках.
+3. **`CRON_SECRET`** в env (Vercel) — для защиты cron-эндпоинтов (фолбэк выводится из токена бота).
+4. **`TELEGRAM_BOT_TOKEN`** (+ webhook) — для рассылок и уведомлений.
+5. **Платёжная система (Pay4game)** — card/crypto пока `501`; оплата с баланса работает.
+6. Проверить курс/наценку категории `dessly-games` в админке (влияет на цену гифтов).
 
 ## Безопасность
 

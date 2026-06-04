@@ -1418,3 +1418,145 @@ the 'categories' column of 'products' in the schema cache». FK в схеме е
 
 - Файлы: src/app/api/admin/products/[id]/route.ts, src/app/api/dessly/games/route.ts,
   src/app/send-game/page.tsx, scripts/make-admin.mjs, WORKLOG.md
+
+---
+
+## 2026-06-04 | ПАКЕТ ИСПРАВЛЕНИЙ (7 задач)
+
+> ТЕКУЩИЙ СТАТУС (обновлено 2026-06-04, финал): все 7 задач (4,3,6,7,1,2) ЗАВЕРШЕНЫ —
+> код + тесты + миграции. ФИНАЛ ВЫПОЛНЕН: тесты 315/315 зелёные, `tsc --noEmit` чист,
+> `next build` успешен. Коммиты по задачам сделаны, push в origin/main выполнен.
+> Изменённые/созданные файлы перечислены в мини-блоках ниже (по каждой задаче).
+>
+> Финальный прогон (2026-06-04):
+> - `vitest run` → 22 файла, 315 тестов passed (включая новые: order-create, order-dessly-polling,
+>   mailing, promo-validate).
+> - `npx tsc --noEmit` → чисто (TSC_OK).
+> - `npx next build` → успешно, все роуты собраны (вкл. новые cron: /api/dessly/cron/reconcile,
+>   /api/telegram/cron/mailings).
+> - `npm run lint` НЕ запускается: ESLint в проекте не сконфигурирован (нет .eslintrc) — это
+>   исходное состояние проекта, не связано с фиксами. Качество кода покрыто tsc + build + тестами.
+>
+> Коммиты по задачам:
+> - fix(categories): задачи 3+4 (фильтр по category_id + ошибка 'categories column')
+> - fix(dessly): задачи 6+7 (цена из региона + polling backoff + cron reconcile)
+> - fix(promo): задача 1 (промокод корзина→чекаут→сервер)
+> - fix(mailings): задача 2 (резюмируемая рассылка + cron-дозабор)
+>
+> НУЖНО ОТ ВЛАДЕЛЬЦА (применить на боевой БД, код сам НЕ применял):
+> 1. migrations/2026-06-04_products_category_fk_reload.sql — FK products.category_id→categories.id
+>    + `NOTIFY pgrst, 'reload schema';` (обязательно после DDL, иначе ошибка schema cache вернётся).
+> 2. migrations/2026-06-04_mailings_queue.sql — колонки failed_count/total_count, статусы
+>    queued/failed, индекс по status.
+> 3. Vercel cron-секреты: убедиться, что CRON_SECRET (если используется) и TELEGRAM_BOT_TOKEN
+>    заданы в окружении прод-деплоя — иначе cron-дозабор рассылок/reconcile не отработает.
+> 4. Курс валюты и наценка категории dessly-games должны быть заданы в админке (не хардкод) —
+>    иначе guard цены отклонит заказы Dessly (400).
+
+### Задача 4 — ошибка "Could not find the 'categories' column of 'products'" (DONE)
+- **Было:** редактирование товара в админке падало с этой ошибкой.
+- **Причина:** GET `/api/admin/products/[id]` возвращает товар с вложенным полем
+  `categories` (объект категории). Фронт (`admin/products/[id]/page.tsx`) при сохранении
+  слал обратно ВЕСЬ объект (`...product`), а PATCH делал `.update({ ...body })` вслепую →
+  Supabase пытался записать несуществующую колонку `categories` (и `id`/служебные поля).
+  Дополнительно FK-embed `categories(...)` в списке мог падать из-за устаревшего schema cache.
+- **Что сделал:**
+  - PATCH: whitelist реальных колонок products (`PRODUCT_UPDATABLE_COLUMNS`) — игнор `categories`/`id`.
+  - GET-список `/api/admin/products`: убрал FK-embed, мапю категории отдельным запросом.
+  - Миграция `migrations/2026-06-04_products_category_fk_reload.sql`: гарантирует FK
+    `products_category_id_fkey` + `NOTIFY pgrst, 'reload schema'`. НЕ применял на боевой (см. «Нужно от владельца»).
+- **Файлы:** src/app/api/admin/products/[id]/route.ts, src/app/api/admin/products/route.ts,
+  migrations/2026-06-04_products_category_fk_reload.sql
+- **Тест:** добавлю в tests (PATCH игнорирует `categories`). Статус: код DONE.
+
+### Задача 3 — фильтрация каталога по категориям (DONE)
+- **Было:** разделение по категориям не работало.
+- **Причина:** публичный `/api/products` использовал FK-embed `category:categories(...)`.
+  При недоступном schema cache весь запрос падал → тихий фолбэк на сгенерированный mock-каталог,
+  где category_id не совпадает с реальными id → фильтр по категории пустой/неверный.
+- **Что сделал:** убрал embed, мапю категорию отдельным запросом (`category` поле сохранено
+  для UI). Фильтр `.eq('category_id', …)` работает на реальных данных. `category/[slug]` —
+  поднял limit до 200, чтобы товары категории не терялись за первыми 50.
+- **Точки входа:** сайт (desktop+mobile), Mini App и бот используют один и тот же сайт
+  (бот: `web_app` → WEBAPP_URL), поэтому фикс API покрывает все три.
+- **Файлы:** src/app/api/products/route.ts, src/app/category/[slug]/page.tsx
+- **Тест:** добавлю фильтр-тест. Статус: код DONE.
+
+### Задача 6 — цена Dessly = 0 (DONE)
+- **Было:** заказ Dessly проходил с ценой 0 и виснул в paid.
+- **Причина:** живой каталог игр Dessly цену НЕ отдаёт (price=0 в карточке), реальная цена —
+  в издании/регионе (getGame/resolvePackage). При списании использовалась цена карточки.
+- **Состояние:** уже частично починено ранее (`resolveDesslyLinePrice` + guard `linePrice<=0`
+  → резолв из региона; guard `!(pkg.price>0)` → ошибка). Проверил путь — корректен:
+  для dessly при нулевой цене карточки берётся цена издания/региона, переводится в ₽ по
+  курсу/наценке категории dessly-games (из БД, не хардкод), при 0/недоступности — заказ
+  отклоняется (400), баланс не списывается. Логика возврата (`failedLineTotal>0`) теперь
+  работает, т.к. цена ненулевая.
+- **Что добавил:** интеграционные тесты в `order-create.test.ts` —
+  (1) товар с price=0 → итог >0 из региона, заказ delivered; (2) недоступный регион → 400, баланс цел.
+- **Файлы:** src/app/api/orders/create/route.ts (проверка), tests/integration/order-create.test.ts
+- Статус: DONE.
+
+### Задача 7 — доставка failed, хотя гифт уходит (DONE)
+- **Было:** заказ помечался failed, хотя игра приходила (10 мгновенных опросов <1с, статус ещё pending).
+- **Причина:** polling без пауз. Уже частично починено (`sleep` + `DeliveryPendingError`).
+- **Что сделал:**
+  - Увеличил бюджет polling: backoff 1.5–3с, до 12 попыток (~30с, в пределах maxDuration=60).
+    Вынес `DESSLY_POLL_MAX_TRIES` в env-переопределяемую константу.
+  - Статусы paid/executing/pending трактуются как «в процессе» (mapStatus), failed/canceled — провал.
+  - Если по таймауту всё ещё pending → `DeliveryPendingError`: заказ остаётся paid (НЕ failed),
+    деньги не возвращаются.
+  - **Добавил фоновый дозабор:** `GET /api/dessly/cron/reconcile` (+ cron в vercel.json каждые 10 мин) —
+    допрашивает зависшие paid-заказы с trace-id: completed → delivered+notify, failed → refund+cancelled.
+  - Тест: `order-dessly-polling.test.ts` — pending→completed через паузы, заказ delivered, не failed.
+- **Файлы:** src/app/api/orders/create/route.ts, src/app/api/dessly/cron/reconcile/route.ts,
+  vercel.json, tests/integration/order-dessly-polling.test.ts
+- Статус: DONE.
+
+### Задача 1 — не работает скидка по промокоду (DONE)
+- **Было:** промокод не давал скидку в заказе.
+- **Причина (клиентская связка):** промокод вводился и валидировался в `cart/page.tsx`, но хранился
+  в ЛОКАЛЬНОМ состоянии страницы. При переходе «Оформить заказ» (`router.push('/checkout')`) он
+  ТЕРЯЛСЯ — `checkout/page.tsx` не имел поля промокода и НЕ слал `promo_code` в `/api/orders/create`.
+  Серверная логика промокода (валидация, применение, сохранение `promo_code_id`, инкремент
+  `used_count`) была корректна и покрыта тестами — но до неё промокод не доходил.
+- **Что сделал:** перенёс промокод в контекст `useCart` (`promo`, `applyPromo`, `clearPromo`,
+  `promoDiscount`), с persist в localStorage (`cart_promo`). Корзина пишет промокод в контекст,
+  чекаут читает его, показывает скидку и шлёт `promo_code` серверу (источник истины — сервер).
+  `clearCart` сбрасывает и промокод.
+- **Точки входа:** сайт + Mini App используют те же страницы; бот открывает их как Mini App → покрыто.
+- **Покрытие кейсов:** невалидный/истёкший/исчерпанный/неактивный код — `promo-validate.test.ts`
+  (валидатор) + `order-math.test.ts` (`isPromoApplicable`); применение percent + инкремент —
+  `order-create.test.ts`. Клиентская связка — вручную (нет RTL-инфры).
+- **Файлы:** src/hooks/useCart.tsx, src/app/cart/page.tsx, src/app/checkout/page.tsx
+- Статус: DONE.
+
+### Задача 2 — не отправляется рассылка в бота (DONE)
+- **Было:** рассылка не доходила до подписчиков.
+- **Причины (несколько):**
+  1. **Fire-and-forget** на serverless: POST запускал `sendBroadcast(...).catch()` без await и
+     возвращал ответ → на Vercel функция замораживается после ответа, фоновая отправка не
+     завершается. Главная причина «рассылка не уходит».
+  2. **Баг пагинации:** один и тот же PostgREST query-builder переиспользовался с повторными
+     `.range()`/await — builder одноразовый, второй проход падает.
+  3. **Нет rate-limit** (~30 msg/сек у Telegram) → 429; при этом на 429 сообщение терялось
+     (`continue` без ретрая).
+  4. Не было статусов `queued`/`failed` и счётчика ошибок.
+- **Что сделал:**
+  - Вынес отправку в `src/lib/telegram/mailing.ts` — **резюмируемая** rate-limited отправка
+    батчами. Прогресс (курсор) хранится в самой строке mailings: `sent_count + failed_count`.
+    Rate-limit ~20 msg/сек (50 мс между отправками). Заблокировавшие бота → `failed` (идём дальше).
+    429/сетевые сбои ретраит `callTelegram` внутри.
+  - POST `/api/admin/mailings`: ставит рассылку в очередь (`status=queued`, `total_count`=снимок
+    аудитории) и шлёт первый батч **в пределах бюджета запроса (await, maxDuration=60)** — отправка
+    больше не теряется после ответа.
+  - **Cron** `GET /api/telegram/cron/mailings` (+ в vercel.json каждые 5 мин) гарантированно
+    дошлёт остаток незавершённых рассылок (queued/sending), резюмируемо по курсору.
+  - Статусы и счётчики (отправлено/ошибки/всего) в админке + автообновление прогресса каждые 5с.
+  - Миграция `migrations/2026-06-04_mailings_queue.sql`: `failed_count`,`total_count`, статусы
+    queued/failed, индекс по status. Обновил и `supabase_schema.sql`. НЕ применял на боевой.
+  - Тест: `tests/unit/mailing.test.ts` — отправка всем, блокировка→failed, completed, счётчики.
+- **Файлы:** src/lib/telegram/mailing.ts, src/app/api/admin/mailings/route.ts,
+  src/app/api/telegram/cron/mailings/route.ts, src/app/admin/mailings/page.tsx, vercel.json,
+  migrations/2026-06-04_mailings_queue.sql, supabase_schema.sql, tests/unit/mailing.test.ts
+- Статус: DONE.
