@@ -6,11 +6,11 @@
     },
     {
       "path": "/api/dessly/cron/reconcile",
-      "schedule": "*/10 * * * *"
+      "schedule": "17 3 * * *"
     },
     {
       "path": "/api/telegram/cron/mailings",
-      "schedule": "*/5 * * * *"
+      "schedule": "23 3 * * *"
     }
   ]
 }
