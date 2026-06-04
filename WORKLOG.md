@@ -1560,3 +1560,30 @@ the 'categories' column of 'products' in the schema cache». FK в схеме е
   src/app/api/telegram/cron/mailings/route.ts, src/app/admin/mailings/page.tsx, vercel.json,
   migrations/2026-06-04_mailings_queue.sql, supabase_schema.sql, tests/unit/mailing.test.ts
 - Статус: DONE.
+
+---
+
+## 2026-06-04 | Пост-финал: фикс деплоя Vercel + Dessly в БОЕВОМ режиме
+
+### Фикс деплоя (cron Hobby-план)
+- **Симптом:** новые коммиты не деплоились в Vercel — ошибка «Hobby accounts are limited to
+  daily cron jobs» на `*/10` и `*/5`. Из-за этого фиксы (в т.ч. код товаров) не попадали на
+  прод → у владельца сохранялась ошибка «categories column of products».
+- **Что сделал:** в `vercel.json` cron-расписания приведены к daily (`17 3 * * *`, `23 3 * * *`).
+  Cron — лишь подстраховка (основная отправка/дозабор идут синхронно в запросе), так что daily ОК.
+- **Файлы:** vercel.json, README.md (cron-таблица + пояснение). Коммит `fix(vercel): cron раз в сутки`.
+
+### Dessly — БОЕВОЙ режим (подтверждено владельцем)
+- Владелец подтвердил: `DESSLY_API_KEY` + `DESSLY_API_SECRET` заданы в env Vercel prod →
+  Dessly работает не на моках, а с реальным API `https://api.desslyhub.com` (подпись X-Signature).
+- Обновил README: блок «Боевые интеграции» (Dessly ✅), «Финальный блок» (остался только AppRoute),
+  «Нужно от владельца» п.2 (Dessly-ключи заданы; AppRoute — на моках).
+- **Осталось по поставщикам:** только AppRoute (`APPROUTE_API_KEY`+`APPROUTE_BASE_URL`) — на моках.
+
+### Этап 8 (новый, в README) — покупка прокси px6.me
+- Добавлен план реализации (client/mock/цена/каталог/заказ/профиль/возврат/тесты). Кода пока нет.
+
+### ТЕКУЩИЙ СТАТУС
+- Все 7 задач пакета: DONE, запушены. Деплой Vercel разблокирован.
+- Dessly: боевой. AppRoute: моки (ждёт ключ). Pay4game: пауза (верификация). Прокси: план.
+- Файлы за этот блок: vercel.json, README.md, WORKLOG.md.
