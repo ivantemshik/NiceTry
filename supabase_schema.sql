@@ -282,11 +282,15 @@ CREATE TABLE mailings (
   button_url TEXT,
   segment TEXT CHECK (segment IN ('all', 'with_orders', 'without_orders', 'by_status', 'by_utm')),
   segment_filter JSONB,
-  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'sending', 'completed')),
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'queued', 'sending', 'completed', 'failed')),
   scheduled_at TIMESTAMPTZ,
   sent_count INTEGER DEFAULT 0,
+  failed_count INTEGER DEFAULT 0,
+  total_count INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX idx_mailings_status ON mailings(status);
 
 -- ============================================
 -- 14. ОТЗЫВЫ

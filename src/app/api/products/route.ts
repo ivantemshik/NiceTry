@@ -24,9 +24,13 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
 
+    // Не полагаемся на FK-embed (`category:categories(...)`): если PostgREST
+    // schema cache его не находит, весь запрос падает с ошибкой и витрина уходит
+    // в фолбэк-каталог, ломая фильтр по категориям. Берём товары, затем мапим
+    // категории отдельным запросом.
     let query = supabase
       .from('products')
-      .select('*, category:categories(id, name, slug)', { count: 'exact' })
+      .select('*', { count: 'exact' })
       .eq('is_active', true)
 
     if (categoryId) query = query.eq('category_id', categoryId)
@@ -44,7 +48,23 @@ export async function GET(request: NextRequest) {
     const { data: products, error, count } = await query
 
     if (!error && products && products.length > 0) {
-      return NextResponse.json({ products, total: count || products.length, limit, offset })
+      // Подмешиваем категорию (id, name, slug) одним запросом
+      const categoryIds = Array.from(
+        new Set(products.map((p: any) => p.category_id).filter(Boolean))
+      )
+      const categoryMap: Record<string, { id: string; name: string; slug: string }> = {}
+      if (categoryIds.length > 0) {
+        const { data: cats } = await supabase
+          .from('categories')
+          .select('id, name, slug')
+          .in('id', categoryIds)
+        for (const c of cats || []) categoryMap[c.id] = c
+      }
+      const withCategories = products.map((p: any) => ({
+        ...p,
+        category: p.category_id ? categoryMap[p.category_id] || null : null,
+      }))
+      return NextResponse.json({ products: withCategories, total: count || products.length, limit, offset })
     }
     // Пустая БД или ошибка — фолбэк на сгенерированный каталог.
     return fallbackResponse({ categoryId, type, supplier, minPrice, maxPrice, search, limit, offset })

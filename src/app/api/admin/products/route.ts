@@ -15,12 +15,11 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
     const isActive = searchParams.get('is_active')
 
+    // Не полагаемся на FK-embed (`categories (...)`) — PostgREST schema cache
+    // в этом деплое его не находит. Берём товары, затем мапим категории отдельным запросом.
     let query = supabase
       .from('products')
-      .select(`
-        *,
-        categories (name, slug)
-      `)
+      .select('*')
       .order('created_at', { ascending: false })
 
     if (category) {
@@ -45,7 +44,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ products })
+    // Подмешиваем категорию (name, slug) одним запросом по всем category_id
+    const categoryIds = Array.from(
+      new Set((products || []).map((p: any) => p.category_id).filter(Boolean))
+    )
+    const categoryMap: Record<string, { name: string; slug: string }> = {}
+    if (categoryIds.length > 0) {
+      const { data: cats } = await supabase
+        .from('categories')
+        .select('id, name, slug')
+        .in('id', categoryIds)
+      for (const c of cats || []) {
+        categoryMap[c.id] = { name: c.name, slug: c.slug }
+      }
+    }
+    const withCategories = (products || []).map((p: any) => ({
+      ...p,
+      categories: p.category_id ? categoryMap[p.category_id] || null : null,
+    }))
+
+    return NextResponse.json({ products: withCategories })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

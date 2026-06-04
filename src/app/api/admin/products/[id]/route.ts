@@ -42,6 +42,29 @@ export async function GET(
   }
 }
 
+// Колонки таблицы products, которые разрешено обновлять через PATCH.
+// Фронт присылает весь объект товара (включая вложенный `categories`, `id`,
+// `created_at` и пр.) — без whitelist Supabase падает с ошибкой
+// "Could not find the 'categories' column of 'products' in the schema cache".
+const PRODUCT_UPDATABLE_COLUMNS = [
+  'name',
+  'description',
+  'type',
+  'category_id',
+  'price',
+  'original_price',
+  'stock',
+  'is_active',
+  'supplier',
+  'supplier_service_id',
+  'denomination_id',
+  'supplier_fields',
+  'min_amount',
+  'max_amount',
+  'image_url',
+  'sort_order',
+] as const
+
 // PATCH /api/admin/products/[id] - обновление товара
 export async function PATCH(
   request: NextRequest,
@@ -54,12 +77,16 @@ export async function PATCH(
 
     const body = await request.json()
 
+    // Берём только реальные колонки таблицы, игнорируем `categories`/`id`/служебные поля
+    const updates: Record<string, any> = {}
+    for (const col of PRODUCT_UPDATABLE_COLUMNS) {
+      if (col in body) updates[col] = body[col]
+    }
+    updates.updated_at = new Date().toISOString()
+
     const { data: product, error } = await supabase
       .from('products')
-      .update({
-        ...body,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq('id', params.id)
       .select()
       .single()

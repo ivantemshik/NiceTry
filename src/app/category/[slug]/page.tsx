@@ -21,7 +21,7 @@ export default function CategoryPage() {
     setLoading(true)
     Promise.all([
       fetch('/api/categories').then((res) => res.json()),
-      fetch('/api/products').then((res) => res.json()),
+      fetch('/api/products?limit=200').then((res) => res.json()),
     ])
       .then(([categoriesData, productsData]) => {
         const foundCategory = categoriesData.categories?.find((c: Category) => c.slug === slug)
