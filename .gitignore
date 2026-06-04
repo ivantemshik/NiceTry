@@ -38,6 +38,10 @@ Thumbs.db
 Снимок экрана*.png
 *.screenshot.png
 
+# Отладочные артефакты сессии (не часть проекта)
+*.jpg
+scripts/_check_order.mjs
+
 # IDE
 .vscode/
 .idea/
