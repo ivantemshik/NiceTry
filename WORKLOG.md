@@ -7,8 +7,8 @@
 ## ТЕКУЩИЙ СТАТУС (px6 / proxy6 интеграция) — обновлено 2026-06-04
 
 **Над чем работаю:** Покупка прокси через API px6 (proxy6) прямо на главной — боевая готовность.
-**Текущий этап:** Этап 3 — ценообразование (бек, наценка из `proxy_settings`).
-**Следующее:** Этап 4 — боевая покупка `/api/proxy/buy`.
+**Текущий этап:** Этап 4 — боевая покупка `/api/proxy/buy`.
+**Следующее:** Этап 5 — UI блока «Купить прокси» на главной.
 
 ### Архитектурные решения (зафиксировано)
 - Клиент px6 строится по образцу `src/lib/dessly.ts`: режим live включается ТОЛЬКО при валидном
@@ -69,6 +69,25 @@
 
 **Тесты:** `tsc --noEmit` → чисто. Миграция на боевой НЕ применялась (по правилам — это делает владелец).
 **Нужно от владельца:** применить миграцию + `NOTIFY pgrst, 'reload schema';`, задать наценку.
+**Статус:** DONE.
+
+---
+
+## 2026-06-04 | px6 Этап 3 — Ценообразование (бек) — DONE
+
+**Что сделано:** расчёт цены на сервере с наценкой из БД, валидация, наличие.
+**Файлы:**
+- `src/lib/proxy-pricing.ts` — `proxyPriceRub(px6Price, currency, markup%, usdRate)` =
+  `ceil(price_в_₽ × (100+markup)/100)` (RUB как есть, USD×курс), как `lib/catalog.ts priceRub`.
+  `loadProxySettings()` — из `proxy_settings` (admin-editable) с фолбэком `DEFAULT_PROXY_SETTINGS`.
+  `validateProxyRequest(count, period, settings)` — лимит max_count, допустимые периоды.
+- `src/app/api/proxy/price/route.ts` — GET: версия/страна/кол-во/срок → проверка наличия
+  (`getCount`) → `getPrice` у px6 → наценка → итог в ₽. Цена считается ТОЛЬКО на беке.
+- `src/app/api/proxy/config/route.ts` — GET: версии, периоды, лимиты, флаг включения,
+  страны под версию (`getCountry`). Для витрины.
+- `tests/unit/proxy-pricing.test.ts` — 8 тестов: RUB/USD наценка, ceil, нули, валидация.
+
+**Тесты:** `vitest run tests/unit/proxy-pricing.test.ts` → 8/8 ✅. `tsc --noEmit` → чисто.
 **Статус:** DONE.
 
 ---
