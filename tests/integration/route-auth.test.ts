@@ -24,6 +24,7 @@ import { GET as adminCategoriesGET } from '@/app/api/admin/categories/route'
 import { PATCH as adminCategoryPATCH } from '@/app/api/admin/categories/[id]/route'
 import { POST as adminSyncApproutePOST } from '@/app/api/admin/sync-approute/route'
 import { POST as adminSyncDesslyPOST } from '@/app/api/admin/sync-dessly/route'
+import { GET as proxySettingsGET, PATCH as proxySettingsPATCH } from '@/app/api/admin/proxy-settings/route'
 
 function jsonReq(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/orders/create', {
@@ -316,6 +317,88 @@ describe('POST /api/admin/sync-dessly — гард администратора 
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(body.supplier).toBe('dessly')
+  })
+})
+
+describe('GET /api/admin/proxy-settings — гард администратора (px6 настройки)', () => {
+  it('401 без авторизации', async () => {
+    state.session = makeSessionClient({ user: null })
+    state.admin = makeAdminClient({})
+    const res = await proxySettingsGET()
+    expect(res.status).toBe(401)
+  })
+
+  it('403 для не-админа', async () => {
+    state.session = makeSessionClient({ user: { id: 'u1' } })
+    state.admin = makeAdminClient({ tables: { users: { data: { is_admin: false } } } })
+    const res = await proxySettingsGET()
+    expect(res.status).toBe(403)
+  })
+
+  it('200 для админа: возвращает настройки', async () => {
+    state.session = makeSessionClient({ user: { id: 'admin1' } })
+    state.admin = makeAdminClient({
+      tables: {
+        users: { data: { is_admin: true } },
+        proxy_settings: { data: { markup_percent: 30, usd_to_rub_rate: 100, is_enabled: true, allowed_periods: [7, 30], max_count: 50 } },
+      },
+    })
+    const res = await proxySettingsGET()
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.settings.markup_percent).toBe(30)
+  })
+})
+
+describe('PATCH /api/admin/proxy-settings — обновление настроек px6', () => {
+  function proxyPatchReq(body: unknown) {
+    return new NextRequest('http://localhost/api/admin/proxy-settings', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+
+  it('401 без авторизации', async () => {
+    state.session = makeSessionClient({ user: null })
+    state.admin = makeAdminClient({})
+    const res = await proxySettingsPATCH(proxyPatchReq({ markup_percent: 25 }))
+    expect(res.status).toBe(401)
+  })
+
+  it('403 для не-админа', async () => {
+    state.session = makeSessionClient({ user: { id: 'u1' } })
+    state.admin = makeAdminClient({ tables: { users: { data: { is_admin: false } } } })
+    const res = await proxySettingsPATCH(proxyPatchReq({ markup_percent: 25 }))
+    expect(res.status).toBe(403)
+  })
+
+  it('400 при отрицательной наценке', async () => {
+    state.session = makeSessionClient({ user: { id: 'admin1' } })
+    state.admin = makeAdminClient({ tables: { users: { data: { is_admin: true } } } })
+    const res = await proxySettingsPATCH(proxyPatchReq({ markup_percent: -5 }))
+    expect(res.status).toBe(400)
+  })
+
+  it('400 при пустых сроках', async () => {
+    state.session = makeSessionClient({ user: { id: 'admin1' } })
+    state.admin = makeAdminClient({ tables: { users: { data: { is_admin: true } } } })
+    const res = await proxySettingsPATCH(proxyPatchReq({ allowed_periods: 'abc, -1' }))
+    expect(res.status).toBe(400)
+  })
+
+  it('200 для админа: сохраняет (нормализует сроки из строки)', async () => {
+    state.session = makeSessionClient({ user: { id: 'admin1' } })
+    state.admin = makeAdminClient({
+      tables: {
+        users: { data: { is_admin: true } },
+        proxy_settings: { data: { markup_percent: 25, usd_to_rub_rate: 100, is_enabled: true, allowed_periods: [7, 14, 30], max_count: 40 } },
+      },
+    })
+    const res = await proxySettingsPATCH(proxyPatchReq({ markup_percent: 25, allowed_periods: '30, 7, 14, 7' }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.settings.markup_percent).toBe(25)
   })
 })
 

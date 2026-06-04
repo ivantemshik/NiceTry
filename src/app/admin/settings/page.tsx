@@ -25,6 +25,14 @@ interface PopularGame {
   name: string
 }
 
+interface ProxySettings {
+  markup_percent: number
+  usd_to_rub_rate: number
+  is_enabled: boolean
+  allowed_periods: number[]
+  max_count: number
+}
+
 export default function AdminSettingsPage() {
   const [statuses, setStatuses] = useState<UserStatus[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,11 +52,62 @@ export default function AdminSettingsPage() {
   const [newGameId, setNewGameId] = useState('')
   const [newGameName, setNewGameName] = useState('')
 
+  // Прокси px6: наценка/курс/лимиты/вкл-выкл блока покупки (синглтон proxy_settings).
+  const [proxy, setProxy] = useState<ProxySettings | null>(null)
+  const [proxyPeriodsText, setProxyPeriodsText] = useState('')
+  const [proxySaving, setProxySaving] = useState(false)
+  const [proxyMsg, setProxyMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
   useEffect(() => {
     fetchStatuses()
     fetchCategories()
     fetchPopular()
+    fetchProxy()
   }, [])
+
+  const fetchProxy = async () => {
+    try {
+      const res = await fetch('/api/admin/proxy-settings')
+      const data = await res.json()
+      if (data.settings) {
+        setProxy(data.settings)
+        setProxyPeriodsText((data.settings.allowed_periods || []).join(', '))
+      }
+    } catch (error) {
+      console.error('Failed to fetch proxy settings:', error)
+    }
+  }
+
+  const saveProxy = async () => {
+    if (!proxy) return
+    setProxySaving(true)
+    setProxyMsg(null)
+    try {
+      const res = await fetch('/api/admin/proxy-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          markup_percent: proxy.markup_percent,
+          usd_to_rub_rate: proxy.usd_to_rub_rate,
+          is_enabled: proxy.is_enabled,
+          max_count: proxy.max_count,
+          allowed_periods: proxyPeriodsText,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setProxyMsg({ type: 'err', text: body.error || 'Не удалось сохранить' })
+        return
+      }
+      setProxy(body.settings)
+      setProxyPeriodsText((body.settings.allowed_periods || []).join(', '))
+      setProxyMsg({ type: 'ok', text: 'Настройки прокси сохранены' })
+    } catch (error) {
+      setProxyMsg({ type: 'err', text: 'Ошибка сети при сохранении' })
+    } finally {
+      setProxySaving(false)
+    }
+  }
 
   const fetchCategories = async () => {
     try {
@@ -453,6 +512,101 @@ export default function AdminSettingsPage() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Прокси px6: наценка / курс / лимиты / вкл-выкл блока покупки */}
+      <div className="card mb-6">
+        <div className="p-6 border-b border-border">
+          <h2 className="text-[17px] font-bold text-navy">Прокси (px6)</h2>
+          <p className="text-sm text-muted mt-1">
+            Наценка, курс и лимиты блока «Купить прокси» на главной. Цена считается как
+            ceil(цена_px6_в_₽ × (1 + наценка%/100)).
+          </p>
+        </div>
+
+        <div className="p-6">
+          {proxyMsg && (
+            <div className={`alert mb-4 ${proxyMsg.type === 'ok' ? 'alert-success' : 'alert-error'}`}>
+              <span>{proxyMsg.text}</span>
+            </div>
+          )}
+
+          {!proxy ? (
+            <div className="loading-block">
+              <div className="spinner" />
+              <span>Загрузка настроек...</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+              <label className="flex items-center gap-3 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={proxy.is_enabled}
+                  onChange={(e) => setProxy({ ...proxy, is_enabled: e.target.checked })}
+                />
+                <span className="font-semibold text-navy">Покупка прокси включена</span>
+                <span className="text-sm text-muted">(выключение скрывает блок на главной)</span>
+              </label>
+
+              <div>
+                <label className="label">Наценка (%)</label>
+                <input
+                  type="number"
+                  value={proxy.markup_percent}
+                  onChange={(e) => setProxy({ ...proxy, markup_percent: parseFloat(e.target.value) })}
+                  className="input"
+                  step="0.01"
+                  min="0"
+                />
+              </div>
+
+              <div>
+                <label className="label">Курс USD→₽ (если px6 в USD)</label>
+                <input
+                  type="number"
+                  value={proxy.usd_to_rub_rate}
+                  onChange={(e) => setProxy({ ...proxy, usd_to_rub_rate: parseFloat(e.target.value) })}
+                  className="input"
+                  step="0.01"
+                  min="0"
+                />
+              </div>
+
+              <div>
+                <label className="label">Макс. кол-во за покупку</label>
+                <input
+                  type="number"
+                  value={proxy.max_count}
+                  onChange={(e) => setProxy({ ...proxy, max_count: parseInt(e.target.value, 10) })}
+                  className="input"
+                  min="1"
+                />
+              </div>
+
+              <div>
+                <label className="label">Доступные сроки (дней, через запятую)</label>
+                <input
+                  type="text"
+                  value={proxyPeriodsText}
+                  onChange={(e) => setProxyPeriodsText(e.target.value)}
+                  className="input"
+                  placeholder="7, 14, 30, 90"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <button
+                  onClick={saveProxy}
+                  disabled={proxySaving}
+                  className="btn btn-primary"
+                  data-loading={proxySaving ? 'true' : undefined}
+                >
+                  Сохранить настройки прокси
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
