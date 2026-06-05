@@ -26,6 +26,11 @@ export async function GET(
       return fallbackProduct(id)
     }
 
+    // Игры Dessly убраны из каталога — карточка недоступна, покупка только через /send-game.
+    if (product.supplier === 'dessly') {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    }
+
     // Остаток instant-товара считаем по product_keys ТОЛЬКО для локальных ключей.
     // Supplier-товары (approute/dessly) ключей в product_keys не держат: approute выдаёт
     // ваучеры вживую (createShopOrder→unhideVouchers), dessly шлёт гифт. Их остаток
@@ -52,7 +57,8 @@ async function fallbackProduct(id: string) {
   try {
     const products = await buildCatalogProducts()
     const product = products.find((p) => p.id === id)
-    if (!product) {
+    // Игры Dessly недоступны как карточка каталога — только через /send-game.
+    if (!product || product.supplier === 'dessly') {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
     return NextResponse.json({ product, source: 'catalog-fallback' })

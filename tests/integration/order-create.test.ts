@@ -95,6 +95,35 @@ beforeAll(async () => {
     admin.from('products').select('*').eq('type', 'topup_auto').eq('is_active', true).limit(1)
   )
   topupProduct = top && top[0]
+  // Боевой каталог AppRoute может не содержать ни одного topup_auto (фид — только voucher),
+  // поэтому не полагаемся на готовый товар в БД, а сидим собственную фикстуру (чистится в afterAll).
+  // Не-instant позиции поставщика не дёргают (order/create: топап → paid/pending), denomination
+  // мок-совместимой быть не обязана.
+  if (!topupProduct) {
+    const { data: seeded, error: tErr } = await retry(() =>
+      admin
+        .from('products')
+        .insert({
+          name: `VITEST topup_auto ${randomUUID().slice(0, 6)}`,
+          description: 'vitest topup fixture',
+          type: 'topup_auto',
+          category_id: instantProduct.category_id,
+          price: 0,
+          min_amount: 100,
+          max_amount: 100000,
+          is_active: true,
+          supplier: 'approute',
+          supplier_service_id: `svc_vitest_topup_${randomUUID().slice(0, 6)}`,
+          denomination_id: `den_vitest_topup_${randomUUID().slice(0, 6)}`,
+          supplier_fields: [{ key: 'account_reference', name: 'ID аккаунта', type: 'text', required: true }],
+        })
+        .select()
+        .single()
+    )
+    if (tErr || !seeded) throw new Error(`seed topup product: ${tErr?.message}`)
+    topupProduct = seeded
+    createdProductIds.push(seeded.id)
+  }
 
   const { data: statuses } = await retry(() => admin.from('user_statuses').select('id, discount_percent'))
   for (const s of statuses || []) {

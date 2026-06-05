@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
       .from('products')
       .select('*', { count: 'exact' })
       .eq('is_active', true)
+      // Игры Dessly убраны из общего каталога — покупка только через /send-game.
+      .neq('supplier', 'dessly')
 
     if (categoryId) query = query.eq('category_id', categoryId)
     if (type) query = query.eq('type', type)
@@ -100,6 +102,8 @@ async function fallbackResponse(f: FilterArgs) {
 
 function applyFilters(products: Product[], f: FilterArgs): Product[] {
   return products.filter((p) => {
+    // Игры Dessly убраны из общего каталога — покупка только через /send-game.
+    if (p.supplier === 'dessly') return false
     if (f.categoryId && p.category_id !== f.categoryId && p.category?.slug !== f.categoryId) return false
     if (f.type && p.type !== f.type) return false
     if (f.supplier && p.supplier !== f.supplier) return false
