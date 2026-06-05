@@ -198,7 +198,7 @@ export default function HomePage() {
           {categories.map((cat) => {
             const count = countByCategory(cat.id)
             return (
-              <div key={cat.id} className="cat-tile" onClick={() => router.push('/catalog')}>
+              <div key={cat.id} className="cat-tile" onClick={() => router.push(`/category/${cat.slug}`)}>
                 <div className="ico">
                   <svg
                     className="ic"

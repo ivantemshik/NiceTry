@@ -1,26 +1,41 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { Product, Category } from '@/types'
 import { PCard } from '@/components/PCard'
 import { ProductFilters, FilterState } from '@/components/ProductFilters'
+import { findCatalogGroup } from '@/lib/catalog-groups'
 
 // Размер страницы каталога. API /api/products отдаёт максимум 200 за запрос (clampInt),
 // 50 — баланс между «не грузить всё разом» и числом нажатий «Показать ещё».
 const PAGE_SIZE = 50
 
+// useSearchParams требует Suspense-границу (иначе ошибка пререндера),
+// поэтому страница — тонкая обёртка над клиентским содержимым.
 export default function CatalogPage() {
+  return (
+    <Suspense fallback={null}>
+      <CatalogContent />
+    </Suspense>
+  )
+}
+
+function CatalogContent() {
+  const searchParams = useSearchParams()
+  // Параметры из URL: группа из catnav шапки (?group=steam) и поиск (?search=…).
+  const groupSlug = searchParams.get('group')
+  const urlSearch = searchParams.get('search') || ''
+  const group = findCatalogGroup(groupSlug)
+
   const [products, setProducts] = useState<Product[]>([])
   const [total, setTotal] = useState(0)
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  // Поисковый запрос из URL (?search=…) — читаем один раз на клиенте,
-  // чтобы переход из шапки реально фильтровал каталог.
-  const [initialSearch, setInitialSearch] = useState<string | undefined>(undefined)
-  const [ready, setReady] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
-    search: '',
+    search: urlSearch,
     category_id: '',
     type: '',
     supplier: '',
@@ -38,6 +53,9 @@ export default function CatalogPage() {
     Object.entries(filters).forEach(([key, value]) => {
       if (value) params.append(key, value)
     })
+    // Группа из catnav: мульти-фильтр по категориям/типам поверх боковых фильтров.
+    if (group?.cats?.length) params.append('cats', group.cats.join(','))
+    if (group?.types?.length) params.append('types', group.types.join(','))
     params.append('limit', String(PAGE_SIZE))
     params.append('offset', String(offset))
     fetch(`/api/products?${params.toString()}`)
@@ -54,14 +72,10 @@ export default function CatalogPage() {
       })
   }
 
+  // Поиск из URL меняется (переход из шапки) — синхронизируем в фильтры.
   useEffect(() => {
-    const search = new URLSearchParams(window.location.search).get('search') || ''
-    if (search) {
-      setInitialSearch(search)
-      setFilters((f) => ({ ...f, search }))
-    }
-    setReady(true)
-  }, [])
+    setFilters((f) => (f.search === urlSearch ? f : { ...f, search: urlSearch }))
+  }, [urlSearch])
 
   useEffect(() => {
     fetch('/api/categories')
@@ -70,23 +84,35 @@ export default function CatalogPage() {
       .catch((err) => console.error('Failed to load categories:', err))
   }, [])
 
-  // Смена фильтров (или первая готовность) — грузим первую страницу заново.
+  // Смена фильтров или группы из URL — грузим первую страницу заново.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!ready) return
     loadPage(false)
-  }, [filters, ready])
+  }, [filters, groupSlug])
 
   return (
     <div className="container py-6 sm:py-8">
       <div className="mb-5 sm:mb-6">
-        <h1>Каталог товаров</h1>
+        <h1>{group ? group.label : 'Каталог товаров'}</h1>
         <p className="text-muted text-sm mt-1">Цифровые товары с моментальной выдачей</p>
+        {group && (
+          <Link href="/catalog" className="badge badge-instant mt-2 inline-flex items-center gap-1.5 !h-7 !px-2.5">
+            {group.label}
+            <svg className="ic ic-sm" viewBox="0 0 24 24" style={{ width: 13, height: 13 }}>
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 lg:gap-6 items-start">
         {/* Фильтры */}
-        <ProductFilters onFilterChange={setFilters} categories={categories} initial={initialSearch ? { search: initialSearch } : undefined} />
+        <ProductFilters
+          key={urlSearch}
+          onFilterChange={setFilters}
+          categories={categories}
+          initial={urlSearch ? { search: urlSearch } : undefined}
+        />
 
         {/* Список товаров */}
         <div className="min-w-0">
@@ -110,6 +136,9 @@ export default function CatalogPage() {
               </div>
               <h3>Товары не найдены</h3>
               <p>Попробуйте изменить запрос или сбросить фильтры — возможно, нужный товар в другой категории.</p>
+              {group && (
+                <Link href="/catalog" className="btn btn-secondary mt-1">Показать весь каталог</Link>
+              )}
             </div>
           ) : (
             <>

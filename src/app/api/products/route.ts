@@ -8,11 +8,14 @@ import type { Product } from '@/types'
  * Список товаров с фильтрами. Источник — таблица products (Supabase).
  * Если БД пуста/недоступна, отдаётся сгенерированный каталог из поставщиков (мок→боевой),
  * чтобы витрина была наполнена сразу. Query: category_id, type, supplier, min_price,
- * max_price, search, limit, offset.
+ * max_price, search, limit, offset, а также мульти-фильтры групп шапки:
+ * cats (slug'и категорий через запятую) и types (типы товаров через запятую).
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const categoryId = searchParams.get('category_id')
+  const cats = splitCsv(searchParams.get('cats'))
+  const types = splitCsv(searchParams.get('types'))
   const type = searchParams.get('type')
   const supplier = searchParams.get('supplier')
   const minPrice = searchParams.get('min_price')
@@ -36,6 +39,18 @@ export async function GET(request: NextRequest) {
       .neq('supplier', 'dessly')
 
     if (categoryId) query = query.eq('category_id', categoryId)
+    // Группы шапки: cats — slug'и категорий. category_id в товарах — uuid,
+    // поэтому сперва переводим slug'и в id отдельным запросом.
+    if (cats.length > 0) {
+      const { data: groupCats } = await supabase
+        .from('categories')
+        .select('id')
+        .in('slug', cats)
+      const ids = (groupCats || []).map((c: any) => c.id)
+      // Нет таких категорий в БД — отдаём пустой результат, а не весь каталог.
+      query = query.in('category_id', ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000'])
+    }
+    if (types.length > 0) query = query.in('type', types)
     if (type) query = query.eq('type', type)
     if (supplier) query = query.eq('supplier', supplier)
     if (minPrice) query = query.gte('price', parseFloat(minPrice))
@@ -72,15 +87,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ products: withCategories, total: count || products.length, limit, offset })
     }
     // Пустая БД или ошибка — фолбэк на сгенерированный каталог.
-    return fallbackResponse({ categoryId, type, supplier, minPrice, maxPrice, search, limit, offset })
+    return fallbackResponse({ categoryId, cats, types, type, supplier, minPrice, maxPrice, search, limit, offset })
   } catch (error) {
     console.error('[products] DB unavailable, using catalog fallback:', error)
-    return fallbackResponse({ categoryId, type, supplier, minPrice, maxPrice, search, limit, offset })
+    return fallbackResponse({ categoryId, cats, types, type, supplier, minPrice, maxPrice, search, limit, offset })
   }
 }
 
 interface FilterArgs {
   categoryId: string | null
+  cats: string[]
+  types: string[]
   type: string | null
   supplier: string | null
   minPrice: string | null
@@ -110,6 +127,9 @@ function applyFilters(products: Product[], f: FilterArgs): Product[] {
     // Игры Dessly убраны из общего каталога — покупка только через /send-game.
     if (p.supplier === 'dessly') return false
     if (f.categoryId && p.category_id !== f.categoryId && p.category?.slug !== f.categoryId) return false
+    // Группы шапки: в фолбэк-каталоге id категории = slug, сверяем по обоим полям.
+    if (f.cats.length > 0 && !f.cats.includes(p.category?.slug || '') && !f.cats.includes(p.category_id || '')) return false
+    if (f.types.length > 0 && !f.types.includes(p.type)) return false
     if (f.type && p.type !== f.type) return false
     if (f.supplier && p.supplier !== f.supplier) return false
     if (f.minPrice && p.price < parseFloat(f.minPrice)) return false
@@ -123,4 +143,10 @@ function clampInt(raw: string | null, def: number, min: number, max: number): nu
   const n = parseInt(raw || '', 10)
   if (Number.isNaN(n)) return def
   return Math.min(max, Math.max(min, n))
+}
+
+/** "a,b , c" → ['a','b','c'] (пустые элементы отбрасываются) */
+function splitCsv(raw: string | null): string[] {
+  if (!raw) return []
+  return raw.split(',').map((s) => s.trim()).filter(Boolean)
 }

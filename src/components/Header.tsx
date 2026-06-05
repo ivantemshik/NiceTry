@@ -17,14 +17,15 @@ import { LEGAL_LINKS } from '@/components/Footer'
  * открывающий выезжающее меню (drawer) с категориями и действиями аккаунта.
  */
 
-// Пункты нижней навигации (иконки и подписи из index.html .catnav)
+// Пункты нижней навигации (иконки и подписи из index.html .catnav).
+// href ведёт на каталог с группой (?group=…) — slug'и из src/lib/catalog-groups.ts.
 const CATNAV = [
-  { label: 'Steam', icon: '<path d="M5 3h14v18l-7-4-7 4z"/>', href: '/catalog' },
-  { label: 'Mobile-игры', icon: '<rect x="6" y="3" width="12" height="18" rx="2"/><path d="M11 18h2"/>', href: '/catalog' },
-  { label: 'Пополнения', icon: '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>', href: '/catalog' },
-  { label: 'Подписки', icon: '<path d="M4 7h16v12H4zM4 7l8 6 8-6"/>', href: '/catalog' },
-  { label: 'Gift-карты', icon: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M12 5v14"/>', href: '/catalog' },
-  { label: 'Популярное', icon: '<path d="M12 3l2.5 5 5.5.8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.5-.8z"/>', href: '/catalog' },
+  { label: 'Steam', icon: '<path d="M5 3h14v18l-7-4-7 4z"/>', href: '/catalog?group=steam' },
+  { label: 'Mobile-игры', icon: '<rect x="6" y="3" width="12" height="18" rx="2"/><path d="M11 18h2"/>', href: '/catalog?group=mobile' },
+  { label: 'Пополнения', icon: '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>', href: '/catalog?group=topup' },
+  { label: 'Подписки', icon: '<path d="M4 7h16v12H4zM4 7l8 6 8-6"/>', href: '/catalog?group=subscriptions' },
+  { label: 'Gift-карты', icon: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M12 5v14"/>', href: '/catalog?group=gift-cards' },
+  { label: 'Популярное', icon: '<path d="M12 3l2.5 5 5.5.8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.5-.8z"/>', href: '/catalog?group=popular' },
 ]
 
 function initials(email?: string): string {
