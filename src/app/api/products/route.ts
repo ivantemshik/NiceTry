@@ -42,9 +42,12 @@ export async function GET(request: NextRequest) {
     if (maxPrice) query = query.lte('price', parseFloat(maxPrice))
     if (search) query = query.ilike('name', `%${search}%`)
 
+    // Миксуем каталог по id (gen_random_uuid — стабильно случаен). Иначе товары идут группами
+    // по бренду (sort_order = порядок фида AppRoute: сначала все ~323 Apple-карты, затем все
+    // Steam и т.д.), и первые страницы оказываются «чисто Apple». id — первичный ключ, поэтому
+    // порядок стабилен между страницами (пагинация limit/offset не плодит дубли/пропуски).
     query = query
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
       .range(offset, offset + limit - 1)
 
     const { data: products, error, count } = await query
@@ -91,6 +94,8 @@ async function fallbackResponse(f: FilterArgs) {
   try {
     let products = await buildCatalogProducts()
     products = applyFilters(products, f)
+    // Тот же микс по id, что и в боевом пути (иначе фолбэк идёт группами по бренду).
+    products.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     const total = products.length
     const paged = products.slice(f.offset, f.offset + f.limit)
     return NextResponse.json({ products: paged, total, limit: f.limit, offset: f.offset, source: 'catalog-fallback' })
