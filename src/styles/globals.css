@@ -225,15 +225,15 @@
   .send-game-card {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    margin-bottom: 24px;
-    border-radius: var(--r-lg);
-    background: linear-gradient(100deg, #eef5ff 0%, #ffffff 65%);
-    border: 1px solid var(--blue-100);
+    gap: 14px;
+    padding: 16px 18px;
+    margin-bottom: 28px;
+    border-radius: var(--r-xl);
+    background: linear-gradient(100deg, #e3efff 0%, #f4f9ff 55%, #ffffff 100%);
+    border: 1.5px solid var(--blue-200);
     text-decoration: none;
     color: var(--navy);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow);
     transition: 0.16s;
   }
   .send-game-card:hover {
@@ -281,13 +281,13 @@
     height: auto;
     min-height: 36px;
   }
-  /* Desktop: restore larger sizing */
+  /* Desktop: крупнее и заметнее (акцентная точка входа в отправку игр). */
   @media (min-width: 601px) {
-    .send-game-card { gap: 16px; padding: 16px 20px; }
-    .send-game-card .sgc-icon { width: 46px; height: 46px; border-radius: 12px; }
-    .send-game-card .sgc-title { font-size: 16px; }
-    .send-game-card .sgc-sub { font-size: 13.5px; -webkit-line-clamp: unset; }
-    .send-game-card .sgc-cta { padding: 8px 20px; font-size: 14px; min-height: 42px; }
+    .send-game-card { gap: 22px; padding: 26px 30px; }
+    .send-game-card .sgc-icon { width: 62px; height: 62px; border-radius: 16px; }
+    .send-game-card .sgc-title { font-size: 21px; }
+    .send-game-card .sgc-sub { font-size: 15px; margin-top: 3px; -webkit-line-clamp: unset; }
+    .send-game-card .sgc-cta { padding: 13px 30px; font-size: 15.5px; min-height: 50px; }
   }
 
   /* Промо-баннеры */
@@ -311,6 +311,24 @@
   }
   .promo.main {
     background: linear-gradient(115deg, #0f2c4a 0%, #13629f 55%, #1c8ce3 100%);
+  }
+  /* Правая половина hero — каталог подписок/карт (отличается оттенком от Steam-блока). */
+  .promo.cards {
+    background: linear-gradient(120deg, #1a2e63 0%, #3b5bd0 60%, #5b8def 100%);
+  }
+  /* Левая ячейка hero (2fr) делится на две равные промо-карточки. */
+  .promo-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  /* В узких карточках сплита текст занимает всю ширину (иначе ранний перенос). */
+  .promo-split .promo h2 {
+    font-size: 21px;
+    max-width: 100%;
+  }
+  .promo-split .promo p {
+    max-width: 100%;
   }
   .promo.side {
     background: linear-gradient(140deg, #102234, #1b3f63);
@@ -593,6 +611,18 @@
   }
   .cat-tiles {
     grid-template-columns: repeat(4, 1fr);
+  }
+}
+/* Планшеты: Telegram-блок уходит под hero, две карточки сплита — на всю ширину строки. */
+@media (max-width: 1000px) {
+  .promo-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* Телефоны: две половины hero (Steam / каталог) складываются в столбец. */
+@media (max-width: 560px) {
+  .promo-split {
+    grid-template-columns: 1fr;
   }
 }
 @media (max-width: 760px) {

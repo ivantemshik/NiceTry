@@ -122,24 +122,37 @@ export default function HomePage() {
         </div>
       ) : (
         <div className="promo-grid">
-          <div className="promo main">
-            <div className="deco" />
-            <span
-              className="badge"
-              style={{
-                background: 'rgba(255,255,255,.15)',
-                color: '#cfe7fb',
-                width: 'max-content',
-                marginBottom: 10,
-              }}
-            >
-              Цифровые товары · выдача за секунды
-            </span>
-            <h2>Пополни Steam и купи игровую валюту без комиссий</h2>
-            <p>Мгновенная выдача ключей, честный курс и поддержка 24/7. Более 180 000 выполненных заказов.</p>
-            <Link className="btn btn-primary btn-lg" href="/catalog">
-              Перейти в каталог
-            </Link>
+          <div className="promo-split">
+            {/* Левая половина: пополнение Steam-кошелька */}
+            <div className="promo main">
+              <div className="deco" />
+              <span
+                className="badge"
+                style={{ background: 'rgba(255,255,255,.15)', color: '#cfe7fb', width: 'max-content', marginBottom: 10 }}
+              >
+                Steam · комиссия всего 3%
+              </span>
+              <h2>Пополни Steam-кошелёк</h2>
+              <p>Мгновенное зачисление по честному курсу. Комиссия всего 3%, поддержка 24/7.</p>
+              <Link className="btn btn-primary btn-lg" href="/catalog?search=Steam">
+                Пополнить Steam
+              </Link>
+            </div>
+            {/* Правая половина: каталог подписок и карт оплаты */}
+            <div className="promo cards">
+              <div className="deco" />
+              <span
+                className="badge"
+                style={{ background: 'rgba(255,255,255,.15)', color: '#dfe6ff', width: 'max-content', marginBottom: 10 }}
+              >
+                Подписки · карты для оплаты
+              </span>
+              <h2>Подписки и карты для оплаты</h2>
+              <p>Gift-карты, подписки и платёжные карты для оплаты сервисов — выдача за секунды.</p>
+              <Link className="btn btn-primary btn-lg" href="/catalog">
+                Открыть каталог
+              </Link>
+            </div>
           </div>
           <div className="promo side">
             <span className="tag">
@@ -163,7 +176,7 @@ export default function HomePage() {
       {sendGameEnabled && (
       <Link href="/send-game" className="send-game-card">
         <div className="sgc-icon" aria-hidden>
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="11" width="18" height="9" rx="2.5" />
             <path d="M7 15.5h2M8 14.5v2M15 15h.01M17.5 16.5h.01" />
             <path d="M9 11V6.5a3 3 0 016 0V11" />
