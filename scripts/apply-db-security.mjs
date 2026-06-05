@@ -20,6 +20,16 @@ import { fileURLToPath } from 'url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
 
+// Подхватываем .env.local, чтобы SUPABASE_DB_URL можно было хранить там, а не только в $env.
+try {
+  for (const line of readFileSync(resolve(root, '.env.local'), 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/)
+    if (m && !(m[1] in process.env)) process.env[m[1]] = m[2]
+  }
+} catch {
+  /* .env.local может отсутствовать — используем process.env */
+}
+
 const dbUrl = process.env.SUPABASE_DB_URL
 if (!dbUrl) {
   console.error(

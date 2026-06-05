@@ -41,6 +41,7 @@ Thumbs.db
 # Отладочные артефакты сессии (не часть проекта)
 *.jpg
 scripts/_check_order.mjs
+services.json
 
 # IDE
 .vscode/

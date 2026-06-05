@@ -4,6 +4,79 @@
 
 ---
 
+## 2026-06-05 | AppRoute — вывод в боевой режим (UNIQUE-индекс + egress-фикс) — DONE
+
+**Над чем работал:** довести синк каталога AppRoute до боевого прогона.
+
+**Проблема 1 — UNIQUE-индекс не создавался.** Миграция
+`migrations/2026-06-05_products_unique_supplier_sku.sql` была с `NULLS NOT DISTINCT` по всей
+таблице. Это ложно схлопывало в «дубль» две РУЧНЫЕ approute-позиции (WoW-буст `type=manual`
+id `d27df9dc…` и Minecraft-пополнение `type=topup_manual` id `453a15ab…`) — у обеих
+`supplier_service_id=NULL` и `denomination_id=NULL`. Это не дубли, а разные товары.
+**Фикс:** переписал на ЧАСТИЧНЫЙ индекс `WHERE supplier_service_id IS NOT NULL` — защищает
+только реальные SKU из фида (у них ключ всегда задан), ручные позиции под него не попадают.
+Среди feed-SKU дублей нет (диагностика `_count.mjs`: 2248 уникальных ключей на 2249 строк, единственная
+коллизия — те самые два ручных). Применён через Supabase SQL Editor: success.
+
+**Проблема 2 — синк падал с TimeoutError на запросе к AppRoute.** `GET /api/v1/services` висел
+40–60с и отваливался по таймауту. Диагностика (`_diag-approute.mjs`, `_test_undici.mjs`):
+- прокси-VPS (APPROUTE_OUTBOUND_PROXY) жив, туннель наружу работает (ipify вернул его IP);
+- approute через прокси отдаёт `200` + 1.34 МБ за ~10с (проверено curl и `undici.request`);
+- виноват рассинхрон undici: глобальный `fetch` использует ВСТРОЕННЫЙ undici Node, а `ProxyAgent`
+  создавался из npm-пакета `undici@7.21.0`. Dispatcher из одного undici в fetch из другого рвёт
+  соединение → `TypeError: fetch failed`. `undici.request` + ProxyAgent из ОДНОГО пакета — работает.
+**Фикс:** `fetchLiveServices` в `scripts/sync-approute.mjs` переписан с `fetch` на `undici.request`
+(headersTimeout/bodyTimeout вместо AbortSignal).
+
+**Также:** `scripts/apply-db-security.mjs` научил подхватывать `SUPABASE_DB_URL` из `.env.local`
+(умеет применять любой .sql-файл аргументом — пригодится как раннер миграций).
+
+**Файлы:**
+- `migrations/2026-06-05_products_unique_supplier_sku.sql` — partial UNIQUE-индекс.
+- `scripts/sync-approute.mjs` — egress через `undici.request`.
+- `scripts/apply-db-security.mjs` — чтение `.env.local`.
+- временные диаг-скрипты: `scripts/_count.mjs`, `_show_dup.mjs`, `_diag-approute.mjs`, `_test_undici.mjs`.
+
+**Статус:** индекс применён ✅, egress-фикс внесён. ОСТАЛОСЬ: прогнать `npm run sync:approute`
+(боевой прогон) и проверить итог. ВНИМАНИЕ: тот же баг fetch+ProxyAgent вероятен в рантайм-клиенте
+`src/lib/approute/client.ts` — проверить, иначе витрина/заказы на боевом сайте упадут так же.
+
+### Дополнение (тот же день, финал)
+
+**Проблема 3 — запись в Supabase рвалась (`TypeError: fetch failed`).** После egress-фикса синк
+дошёл до записи и упал на upsert-пачках. Замер (`_test_write.mjs`, `_test_batch.mjs`): upsert 1 строки —
+ок, update 1 — ок, но POST-тело > ~28КБ эта сеть рвёт детерминированно. Порог: пачка 25 строк (~14КБ)
+проходит с первой попытки, 50 (~28КБ) — падает всегда.
+**Фиксы в `scripts/sync-approute.mjs`:**
+- Supabase-клиент переведён на транспорт из npm-пакета undici с КОРОТКИМ keep-alive
+  (`Agent({ keepAliveTimeout: 1, ... })`, `global.fetch`): встроенный undici держал протухающий
+  keep-alive-коннект, отсюда таймауты на 1-й попытке каждого чтения.
+- `BATCH_SIZE` дефолт 100 → **25** (порог этой сети; переопределяется `SYNC_BATCH_SIZE`).
+- Префетч существующих: страница 1000 → 200 + обёрнут в `withRetry`.
+
+**БОЕВОЙ ПРОГОН УСПЕШЕН:** `Сервисов от поставщика: 1100`, `обновлено 2193`, добавлено 0,
+пропущено (вне категорий) 591. AppRoute-каталог синхронизирован с реальным API. ✅
+
+**Проблема 4 — рантайм-клиент `src/lib/approute/client.ts` (тот же баг fetch+ProxyAgent).**
+`liveRequest` ходил через `global fetch` + `dispatcher` из npm-undici — на проде (Vercel) это
+дало бы `TypeError: fetch failed` на каждом обращении к approute (каталог витрины `listServices`,
+ПОКУПКА approute-товара `createShopOrder`/`orders/create`). Воспроизведено локально, на самом
+Vercel НЕ проверялось (бандлинг может отличаться).
+**Фикс:** `liveRequest` переведён с `fetch` на `undici.request` (+ `headersTimeout`/`bodyTimeout`,
+константа `APPROUTE_HTTP_TIMEOUT_MS`). Без прокси dispatcher=undefined → прямой запрос, как было.
+
+**Регрессия:** `tsc --noEmit` чисто. `vitest run` — 352/356 сразу зелёные; 4 «упавших» (все в
+`order-create.test.ts`) — флаки по таймауту 60с против ЖИВОГО Supabase на медленной сети, при
+перезапуске `--testTimeout=120000` → 14/14 зелёные. Мой рефактор тут ни при чём: тесты идут в
+мок-режиме approute (`NICETRY_FORCE_SUPPLIER_MOCK=1`), `liveRequest` в них не вызывается.
+
+**Остаётся от владельца:** задеплоить на Vercel и проверить боевую покупку approute-товара (фикс
+рантайм-клиента проверен только локально). Временные диаг-скрипты оставлены в `scripts/` (_count,
+_show_dup, _diag-approute, _test_undici, _test_write, _test_batch) — на случай повторной отладки сети.
+
+---
+
+
 ## ТЕКУЩИЙ СТАТУС (px6 / proxy6 интеграция) — обновлено 2026-06-04 (финал)
 
 **Над чем работаю:** Покупка прокси через API px6 (proxy6) прямо на главной — боевая готовность.

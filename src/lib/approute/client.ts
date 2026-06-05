@@ -38,11 +38,39 @@ const PLACEHOLDER_VALUES = new Set([
   'changeme',
 ])
 
+// Таймаут боевого HTTP-запроса к AppRoute (egress через VPS-прокси может быть небыстрым).
+// headersTimeout/bodyTimeout у undici.request — отдельные стадии; ставим один потолок на обе.
+const APPROUTE_HTTP_TIMEOUT_MS = Number(process.env.APPROUTE_HTTP_TIMEOUT_MS || 60000)
+
 function rawBaseUrl(): string {
   return (process.env.APPROUTE_BASE_URL || '').trim().replace(/\/+$/, '')
 }
 function rawApiKey(): string {
   return (process.env.APPROUTE_API_KEY || '').trim()
+}
+
+// Исходящий прокси для запросов к AppRoute. Постоянный токен AppRoute требует вайтлист IPv4,
+// а Vercel serverless выходит наружу с динамических IP — статичного egress-IP не даёт.
+// Решение: гоним запросы к AppRoute через VPS-прокси со статичным IP (его и вписываем в
+// вайтлист). Адрес задаётся в APPROUTE_OUTBOUND_PROXY (http://user:pass@host:port).
+// Если переменная не задана — fetch идёт напрямую (локально/в тестах поведение не меняется).
+function rawOutboundProxy(): string {
+  return (process.env.APPROUTE_OUTBOUND_PROXY || '').trim()
+}
+
+// ProxyAgent создаётся лениво один раз на значение URL прокси (переиспользуем пул соединений).
+let cachedProxyUrl = ''
+let cachedDispatcher: import('undici').Dispatcher | undefined
+function outboundDispatcher(): import('undici').Dispatcher | undefined {
+  const url = rawOutboundProxy()
+  if (!url) return undefined
+  if (url !== cachedProxyUrl) {
+    // ProxyAgent грузим лениво, чтобы undici не тянулся в клиентский бандл/тесты без нужды.
+    const { ProxyAgent } = require('undici') as typeof import('undici')
+    cachedDispatcher = new ProxyAgent(url)
+    cachedProxyUrl = url
+  }
+  return cachedDispatcher
 }
 
 /** Боевой режим включён, только если заданы валидные (не плейсхолдерные) base URL и ключ. */
@@ -151,9 +179,23 @@ async function liveRequest<T>(path: string, opts: RequestOptions = {}): Promise<
     bodyStr = JSON.stringify(opts.body)
   }
 
-  let res: Response
+  let res: { statusCode: number; body: { json: () => Promise<unknown> } }
   try {
-    res = await fetch(url.toString(), { method, headers, body: bodyStr, cache: 'no-store' })
+    // ВАЖНО: используем undici.request, а НЕ глобальный fetch. Глобальный fetch работает на
+    // ВСТРОЕННОМ в Node undici, а ProxyAgent/dispatcher мы берём из npm-пакета undici — dispatcher
+    // из одного undici, переданный в fetch из другого, рвёт соединение ("TypeError: fetch failed",
+    // воспроизведено на боевом egress 2026-06-05). request + dispatcher из ОДНОГО пакета работает.
+    // Без прокси dispatcher = undefined → прямой запрос, поведение не меняется.
+    const { request } = require('undici') as typeof import('undici')
+    const dispatcher = outboundDispatcher()
+    res = await request(url.toString(), {
+      method,
+      headers,
+      body: bodyStr,
+      dispatcher,
+      headersTimeout: APPROUTE_HTTP_TIMEOUT_MS,
+      bodyTimeout: APPROUTE_HTTP_TIMEOUT_MS,
+    })
   } catch (e) {
     throw new AppRouteError(
       `Network error calling AppRoute: ${(e as Error).message}`,
@@ -165,16 +207,16 @@ async function liveRequest<T>(path: string, opts: RequestOptions = {}): Promise<
 
   let env: AppRouteEnvelope<T>
   try {
-    env = (await res.json()) as AppRouteEnvelope<T>
+    env = (await res.body.json()) as AppRouteEnvelope<T>
   } catch {
     throw new AppRouteError(
-      `Invalid JSON from AppRoute (http=${res.status})`,
+      `Invalid JSON from AppRoute (http=${res.statusCode})`,
       AppRouteStatusCode.INTERNAL_ERROR,
-      res.status,
+      res.statusCode,
       ''
     )
   }
-  return unwrap(env, res.status)
+  return unwrap(env, res.statusCode)
 }
 
 // ============================================================
