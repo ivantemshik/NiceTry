@@ -30,12 +30,12 @@ export const LEGAL = {
     'Казахстан, Павлодарская область, город Экибастуз, улица Энергетиктер, здание 83А, почтовый индекс 141208',
 
   /** Домен и ссылки */
-  domain: 'kazna.shop',
-  url: 'https://kazna.shop',
-  offerUrl: 'https://kazna.shop/public_offer',
+  domain: 'www.nicetry.guru',
+  url: 'https://www.nicetry.guru',
+  offerUrl: 'https://www.nicetry.guru/public_offer',
 
   /** Контактный email (указывается на сайте) */
-  email: 'support@kazna.shop',
+  email: 'support@nicetry.guru',
 
   /** Юрисдикция и место */
   jurisdiction: 'Республика Казахстан',

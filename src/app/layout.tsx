@@ -8,6 +8,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.nicetry.guru'),
   title: 'NiceTry — магазин цифровых товаров',
   description: 'Пополнение игровых аккаунтов, ключи и коды активации, gift-карты, подписки',
   icons: {

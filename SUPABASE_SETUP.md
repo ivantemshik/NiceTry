@@ -63,7 +63,7 @@ ORDER BY table_name;
    - Site URL: `http://localhost:3000` (для разработки)
    - Redirect URLs: 
      - `http://localhost:3000/auth/callback`
-     - `https://your-domain.vercel.app/auth/callback` (для продакшена)
+     - `https://www.nicetry.guru/auth/callback` (для продакшена)
 
 ## Шаг 4: Получение ключей
 

@@ -21,7 +21,7 @@
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
-NEXT_PUBLIC_SITE_URL=https://your-domain.vercel.app
+NEXT_PUBLIC_SITE_URL=https://www.nicetry.guru
 ```
 
 #### Для Этапа 3 (интеграция с поставщиками):
@@ -56,7 +56,7 @@ TELEGRAM_BOT_TOKEN=your_bot_token
 1. Откройте Supabase → **Authentication** → **URL Configuration**
 2. Добавьте в **Redirect URLs**:
    ```
-   https://your-domain.vercel.app/auth/callback
+   https://www.nicetry.guru/auth/callback
    ```
 
 ### Автоматический деплой
