@@ -145,10 +145,20 @@ NiceTry/
   - Живой каталог 3223 игр (поиск/картинки), отправка гифта по Steam-invite, цена из
     издания/региона, polling с backoff до `completed`, фоновый дозабор `cron/reconcile`.
 
+- [x] **AppRoute (gift-карты и пополнения) — БОЕВОЙ режим** ✅
+  - Боевой каталог синхронизирован в Supabase: **2249 SKU** (`npm run sync:approute`), 11 категорий,
+    цены/остатки из реального API. Egress наружу — через VPS-прокси со статичным IP (вписан в
+    вайтлист AppRoute), транспорт на `undici.request` + `ProxyAgent` (фикс `TypeError: fetch failed`).
+  - Витрина: `/catalog` и `/category/[slug]` показывают весь каталог с серверной пагинацией
+    (`limit/offset` + «Показать ещё»), счётчик по реальному `total`.
+  - Обложки: боевой API картинок не отдаёт, поэтому `image_url` = логотип бренда по `section`
+    (Google favicon, карта `section→домен` в `src/data/approute-brand-logos.json`). Покрытие — 96%
+    активных; родовые `section` (Mobile, TV…) остаются на брендовом градиенте `PCard`.
+  - Runtime-клиент `src/lib/approute/client.ts` включает боевой режим автоматически при валидных
+    `APPROUTE_BASE_URL` + `APPROUTE_API_KEY` (+ `APPROUTE_OUTBOUND_PROXY`); иначе — мок-режим.
+
 ### ⏳ Финальный блок (зависит от внешних ключей / верификации — делаем в конце)
 
-- [ ] **Боевая интеграция AppRoute** — после получения `X-API-Key` и `{BASE_URL}`
-  - Клиент уже реализован и работает на моках; нужна подстановка реальных ключа/URL
 - [ ] **Приём платежей (Pay4game)** — после верификации платёжной системы
   - Сейчас card/crypto → `501`; оплата с внутреннего баланса работает
 - [ ] **Пост-MVP** — крипто-оплата
@@ -231,7 +241,9 @@ psql "$SUPABASE_DB_URL" -f migrations/2026-06-03_reviews_unique_order.sql
    - рассылки не получат счётчики/статусы queued/failed (Задача 2).
 2. **Боевые ключи поставщиков** (env Vercel):
    - `DESSLY_API_KEY` + `DESSLY_API_SECRET` — **заданы, Dessly в боевом режиме** ✅
-   - `APPROUTE_API_KEY` + `APPROUTE_BASE_URL` — пока пусто, AppRoute работает на моках.
+   - `APPROUTE_API_KEY` + `APPROUTE_BASE_URL` + `APPROUTE_OUTBOUND_PROXY` — заданы локально, AppRoute
+     в боевом режиме ✅. **Для прода:** прописать те же три переменные на Vercel (статичный IP прокси —
+     в вайтлисте AppRoute) и проверить боевую покупку approute-товара.
 3. **`CRON_SECRET`** в env (Vercel) — для защиты cron-эндпоинтов (фолбэк выводится из токена бота).
 4. **`TELEGRAM_BOT_TOKEN`** (+ webhook) — для рассылок и уведомлений.
 5. **Платёжная система (Pay4game)** — card/crypto пока `501`; оплата с баланса работает.
