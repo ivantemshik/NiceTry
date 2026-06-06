@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/hooks/useCart'
@@ -9,6 +9,19 @@ import { useAuth } from '@/hooks/useAuth'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 import Alert from '@/components/ui/Alert'
+import Input from '@/components/ui/Input'
+import { NICKNAME_MIN, NICKNAME_MAX } from '@/lib/auth/nickname'
+
+// Гостевой чекаут на ЗАГЛУШКЕ оплаты (PAYMENTS_MODE=mock):
+//   шаг 'form'     — почта + способ оплаты → оплатить;
+//   шаг 'nickname' — после DEMO-оплаты новый гость придумывает ник → авто-вход → ЛК;
+//   шаг 'existing' — на почту уже есть аккаунт → предложить вход по коду.
+// Оплата с баланса (для залогиненных) идёт прежним путём /api/orders/create без изменений.
+
+type Step = 'form' | 'nickname' | 'existing'
+type PaymentMethod = 'balance' | 'mock'
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -16,37 +29,97 @@ export default function CheckoutPage() {
   const { user } = useUser()
   const { items, totalAmount, clearCart, promo, promoDiscount } = useCart()
 
-  const [paymentMethod, setPaymentMethod] = useState<'balance' | 'card'>('balance')
+  const [step, setStep] = useState<Step>('form')
+  const [email, setEmail] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('mock')
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState('')
+
+  // Данные созданного гостевого заказа (для шага ника / привязки).
+  const [pending, setPending] = useState<{ orderId: string; token: string; email: string } | null>(null)
+
+  // Предзаполняем почту из аккаунта при активной сессии (и блокируем поле).
+  useEffect(() => {
+    if (user?.email) setEmail(user.email)
+  }, [user?.email])
+
+  // Залогиненный по умолчанию платит с баланса; гость — DEMO-картой.
+  useEffect(() => {
+    setPaymentMethod(authUser ? 'balance' : 'mock')
+  }, [authUser])
 
   const statusDiscount = user?.status?.discount_percent
     ? (totalAmount * user.status.discount_percent) / 100
     : 0
   const finalAmount = Math.max(0, totalAmount - statusDiscount - promoDiscount)
   const insufficient = paymentMethod === 'balance' && !!user && user.balance < finalAmount
+  const emailLocked = !!authUser
 
+  // ——— Оплата ———
   const handleSubmit = async () => {
-    if (!authUser) {
-      router.push('/auth/login?redirect=/checkout')
-      return
-    }
     if (items.length === 0) {
       router.push('/cart')
       return
     }
-    if (paymentMethod === 'balance' && user && user.balance < finalAmount) {
-      setError('Недостаточно средств на балансе')
+    setError('')
+
+    // Оплата с баланса — прежний поток (только для залогиненных).
+    if (paymentMethod === 'balance') {
+      if (!authUser) {
+        router.push('/auth/login?redirect=/checkout')
+        return
+      }
+      if (user && user.balance < finalAmount) {
+        setError('Недостаточно средств на балансе')
+        return
+      }
+      setProcessing(true)
+      try {
+        const res = await fetch('/api/orders/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: items.map((item) => ({
+              product_id: item.product.id,
+              quantity: item.quantity,
+              price: item.customAmount || item.product.price,
+              custom_amount: item.customAmount,
+              form_data: item.formData,
+            })),
+            payment_method: 'balance',
+            promo_code: promo?.code,
+            total_amount: totalAmount,
+            discount_amount: statusDiscount + promoDiscount,
+            final_amount: finalAmount,
+          }),
+        })
+        const data = await res.json()
+        if (res.ok && data.order) {
+          clearCart()
+          router.push(`/orders/${data.order.id}`)
+        } else {
+          setError(data.error || 'Ошибка создания заказа')
+          setProcessing(false)
+        }
+      } catch {
+        setError('Произошла ошибка при оформлении заказа')
+        setProcessing(false)
+      }
       return
     }
 
+    // DEMO-оплата (mock) — гостевой поток.
+    if (!emailLocked && !EMAIL_RE.test(email.trim())) {
+      setError('Укажите корректный email для получения')
+      return
+    }
     setProcessing(true)
-    setError('')
     try {
-      const res = await fetch('/api/orders/create', {
+      const res = await fetch('/api/checkout/guest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          email: email.trim(),
           items: items.map((item) => ({
             product_id: item.product.id,
             quantity: item.quantity,
@@ -54,45 +127,106 @@ export default function CheckoutPage() {
             custom_amount: item.customAmount,
             form_data: item.formData,
           })),
-          payment_method: paymentMethod,
-          // Промокод передаём серверу — он пересчитает и применит скидку авторитетно.
           promo_code: promo?.code,
-          total_amount: totalAmount,
-          discount_amount: statusDiscount + promoDiscount,
-          final_amount: finalAmount,
         }),
       })
       const data = await res.json()
-      if (res.ok && data.order) {
-        clearCart()
-        router.push(`/orders/${data.order.id}`)
-      } else {
-        setError(data.error || 'Ошибка создания заказа')
+      if (!res.ok || !data.success) {
+        setError(data.error || 'Не удалось оформить заказ')
         setProcessing(false)
+        return
       }
-    } catch (err) {
-      console.error('Checkout error:', err)
+      clearCart()
+      if (data.flow === 'session') {
+        // Сессия активна — заказ уже в аккаунте, ник не нужен.
+        router.push(`/orders/${data.order.id}`)
+        return
+      }
+      if (data.flow === 'existing') {
+        // На эту почту уже есть аккаунт — заказ привязан, предлагаем вход по коду.
+        setStep('existing')
+        setProcessing(false)
+        return
+      }
+      // Новый гость — шаг ника.
+      setPending({ orderId: data.order.id, token: data.token, email: data.email })
+      setStep('nickname')
+      setProcessing(false)
+    } catch {
       setError('Произошла ошибка при оформлении заказа')
       setProcessing(false)
     }
   }
 
-  if (!authUser) {
-    return (
-      <div className="container py-10">
-        <div className="empty-state card max-w-lg mx-auto">
-          <div className="ico">
-            <svg className="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5" /><path d="M5 20a7 7 0 0114 0" /></svg>
-          </div>
-          <h3>Требуется авторизация</h3>
-          <p>Войдите в аккаунт, чтобы оформить заказ и получить товар.</p>
-          <Link href="/auth/login?redirect=/checkout" className="btn btn-primary mt-1">Войти</Link>
-        </div>
-      </div>
-    )
+  // ——— Шаг ника (live-проверка свободен/занят) ———
+  const [nickname, setNickname] = useState('')
+  const [nickState, setNickState] = useState<'idle' | 'checking' | 'free' | 'taken' | 'invalid'>('idle')
+  const [nickError, setNickError] = useState('')
+  const nickAbort = useRef<AbortController | null>(null)
+  useEffect(() => {
+    if (step !== 'nickname') return
+    const value = nickname.trim()
+    if (!value) {
+      setNickState('idle')
+      setNickError('')
+      return
+    }
+    setNickState('checking')
+    setNickError('')
+    const handle = setTimeout(async () => {
+      nickAbort.current?.abort()
+      const ctrl = new AbortController()
+      nickAbort.current = ctrl
+      try {
+        const res = await fetch(`/api/user/nickname/check?nickname=${encodeURIComponent(value)}`, {
+          signal: ctrl.signal,
+        })
+        const data = await res.json()
+        if (!data.valid) {
+          setNickState('invalid')
+          setNickError(data.error || 'Недопустимый ник')
+        } else {
+          setNickState(data.available ? 'free' : 'taken')
+        }
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') setNickState('idle')
+      }
+    }, 400)
+    return () => clearTimeout(handle)
+  }, [nickname, step])
+
+  const handleFinalize = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!pending || nickState !== 'free') return
+    setProcessing(true)
+    setError('')
+    try {
+      const res = await fetch('/api/checkout/finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: pending.orderId,
+          token: pending.token,
+          nickname: nickname.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        if (res.status === 409) setNickState('taken')
+        setError(data.error || 'Не удалось завершить оформление')
+        setProcessing(false)
+        return
+      }
+      // Авто-вход выполнен сервером (cookies). Идём в личный кабинет.
+      window.location.href = '/profile'
+    } catch {
+      setError('Ошибка сети')
+      setProcessing(false)
+    }
   }
 
-  if (items.length === 0) {
+  // ——— Пустая корзина ———
+  if (items.length === 0 && step === 'form') {
     return (
       <div className="container py-10">
         <div className="empty-state card max-w-lg mx-auto">
@@ -107,48 +241,172 @@ export default function CheckoutPage() {
     )
   }
 
+  // ——— Шаг: на почту уже есть аккаунт ———
+  if (step === 'existing') {
+    return (
+      <div className="container py-12 flex justify-center">
+        <div className="card card-pad max-w-md w-full text-center">
+          <div className="alert alert-success mb-4 text-left">
+            <svg className="ic ic-sm" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" /></svg>
+            <div>
+              <div className="font-semibold">Оплата прошла</div>
+              <p className="text-[13px] opacity-90 mt-0.5">Заказ оформлен и привязан к вашему аккаунту.</p>
+            </div>
+          </div>
+          <h2 className="mb-2">У вас уже есть аккаунт</h2>
+          <p className="text-muted text-sm mb-5">
+            На почту <b>{email}</b> уже зарегистрирован аккаунт. Войдите по коду, чтобы увидеть заказ
+            и историю покупок.
+          </p>
+          <Link
+            href={`/auth/login?redirect=/profile&identifier=${encodeURIComponent(email)}`}
+            className="btn btn-primary btn-lg w-full"
+          >
+            Войти по коду
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  // ——— Шаг: придумайте ник (после DEMO-оплаты) ———
+  if (step === 'nickname') {
+    return (
+      <div className="container py-12 flex justify-center">
+        <div className="card card-pad max-w-md w-full">
+          <div className="alert alert-success mb-5">
+            <svg className="ic ic-sm" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" /></svg>
+            <div>
+              <div className="font-semibold">Оплата прошла</div>
+              <p className="text-[13px] opacity-90 mt-0.5">
+                Заказ оформлен на {pending?.email}.
+              </p>
+            </div>
+          </div>
+
+          <div className="text-center mb-5">
+            <h1 className="text-[22px]">Придумайте никнейм</h1>
+            <p className="text-muted text-sm mt-1.5">Создадим аккаунт на вашу почту и сохраним заказ</p>
+          </div>
+
+          <form onSubmit={handleFinalize} className="space-y-4">
+            <div>
+              <label htmlFor="nickname" className="label">Никнейм</label>
+              <Input
+                id="nickname"
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="например, player_01"
+                required
+                disabled={processing}
+                autoComplete="off"
+                error={nickState === 'taken' || nickState === 'invalid'}
+              />
+              <div className="mt-1.5 text-[13px] min-h-[18px]">
+                {nickState === 'checking' && <span className="text-muted-2">Проверяем…</span>}
+                {nickState === 'free' && <span className="text-green-600">✓ Ник свободен</span>}
+                {nickState === 'taken' && <span className="text-red-600">Этот ник уже занят</span>}
+                {nickState === 'invalid' && <span className="text-red-600">{nickError}</span>}
+                {nickState === 'idle' && (
+                  <span className="text-muted-2">
+                    Латиница, цифры, _ и -, от {NICKNAME_MIN} до {NICKNAME_MAX} символов
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {error && <Alert variant="error">{error}</Alert>}
+
+            <Button type="submit" variant="primary" size="lg" loading={processing} block disabled={nickState !== 'free'}>
+              Продолжить
+            </Button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
+  // ——— Шаг: форма чекаута ———
   return (
     <div className="container py-6 sm:py-8">
       <h1 className="mb-5 sm:mb-6">Оформление заказа</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6 items-start">
-        {/* Основная информация */}
         <div className="lg:col-span-2 space-y-5">
+          {/* Email для получения */}
+          <Card padding={false}>
+            <div className="card-pad">
+              <h2 className="mb-4">Email для получения</h2>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                required
+                disabled={processing || emailLocked}
+                autoComplete="email"
+              />
+              <p className="text-sm text-muted mt-2">
+                {emailLocked
+                  ? 'Заказ будет сохранён в вашем аккаунте.'
+                  : 'На эту почту привяжем заказ. После оплаты придумаете ник — аккаунт создадим автоматически, без кода.'}
+              </p>
+            </div>
+          </Card>
+
           {/* Способ оплаты */}
           <Card padding={false}>
             <div className="card-pad">
               <h2 className="mb-4">Способ оплаты</h2>
               <div className="space-y-3">
+                {/* Баланс — только для залогиненных */}
+                {authUser && (
+                  <label
+                    className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-all ${
+                      paymentMethod === 'balance' ? 'border-blue bg-blue-50/60 ring-1 ring-blue/30' : 'border-border hover:border-blue-200'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="balance"
+                      checked={paymentMethod === 'balance'}
+                      onChange={() => setPaymentMethod('balance')}
+                      className="radio mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-navy mb-0.5">Оплата с баланса</div>
+                      <div className="text-sm text-muted">Доступно: {formatPrice(user?.balance || 0)}</div>
+                      {insufficient && (
+                        <div className="text-xs text-red mt-1 font-medium">Недостаточно средств — пополните баланс.</div>
+                      )}
+                    </div>
+                  </label>
+                )}
+
+                {/* DEMO-оплата (mock) */}
                 <label
                   className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-all ${
-                    paymentMethod === 'balance' ? 'border-blue bg-blue-50/60 ring-1 ring-blue/30' : 'border-border hover:border-blue-200'
+                    paymentMethod === 'mock' ? 'border-blue bg-blue-50/60 ring-1 ring-blue/30' : 'border-border hover:border-blue-200'
                   }`}
                 >
                   <input
                     type="radio"
                     name="payment"
-                    value="balance"
-                    checked={paymentMethod === 'balance'}
-                    onChange={(e) => setPaymentMethod(e.target.value as 'balance')}
+                    value="mock"
+                    checked={paymentMethod === 'mock'}
+                    onChange={() => setPaymentMethod('mock')}
                     className="radio mt-0.5"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-navy mb-0.5">Оплата с баланса</div>
-                    <div className="text-sm text-muted">Доступно: {formatPrice(user?.balance || 0)}</div>
-                    {insufficient && (
-                      <div className="text-xs text-red mt-1 font-medium">Недостаточно средств — пополните баланс.</div>
-                    )}
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 p-4 border border-border rounded-lg cursor-not-allowed opacity-60">
-                  <input type="radio" name="payment" value="card" disabled className="radio mt-0.5" />
-                  <div className="flex-1">
-                    <div className="font-semibold text-navy mb-0.5 flex items-center gap-2">
+                    <div className="font-semibold text-navy mb-0.5">
                       Оплата картой
-                      <span className="badge badge-amber !h-5">скоро</span>
                     </div>
-                    <div className="text-sm text-muted">Скоро будет доступно</div>
+                    <div className="text-sm text-muted">
+                      Безопасная оплата банковской картой.
+                    </div>
                   </div>
                 </label>
               </div>
@@ -215,8 +473,15 @@ export default function CheckoutPage() {
 
               {error && <div className="mb-4"><Alert variant="error">{error}</Alert></div>}
 
-              <Button variant="primary" size="lg" onClick={handleSubmit} loading={processing} disabled={insufficient} block>
-                Оплатить
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleSubmit}
+                loading={processing}
+                disabled={insufficient}
+                block
+              >
+                {paymentMethod === 'mock' ? 'Оплатить' : 'Оплатить'}
               </Button>
 
               <p className="text-xs text-muted-2 text-center mt-3">

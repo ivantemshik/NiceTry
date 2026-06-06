@@ -171,7 +171,13 @@ export default function OrderPage() {
               <div className="flex justify-between text-sm pt-2 border-t border-border-2">
                 <span className="text-muted">Способ оплаты</span>
                 <span className="font-semibold">
-                  {order.payment_method === 'balance' ? 'Баланс' : order.payment_method === 'card' ? 'Банковская карта' : 'Криптовалюта'}
+                  {order.payment_method === 'balance'
+                    ? 'Баланс'
+                    : order.payment_method === 'card'
+                    ? 'Банковская карта'
+                    : order.payment_method === 'mock'
+                    ? 'Банковская карта'
+                    : 'Криптовалюта'}
                 </span>
               </div>
               <div className="flex justify-between items-center pt-3 border-t border-border">

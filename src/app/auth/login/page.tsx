@@ -31,10 +31,12 @@ export default function LoginPage() {
   const [info, setInfo] = useState('')
 
   // Залогиненный пользователь без ника может прийти из профиля по ссылке ?step=nickname.
+  // ?identifier= предзаполняет ник/почту (например, переход из гостевого чекаута «у вас есть аккаунт»).
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('step') === 'nickname') {
-      setStep('nickname')
-    }
+    const sp = new URLSearchParams(window.location.search)
+    if (sp.get('step') === 'nickname') setStep('nickname')
+    const id = sp.get('identifier')
+    if (id) setIdentifier(id)
   }, [])
 
   // Кулдаун повторной отправки кода.
