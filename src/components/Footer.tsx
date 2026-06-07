@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { LEGAL } from '@/lib/legal'
+import { SUPPORT_URL, REVIEWS_URL, TELEGRAM_CHANNEL_URL, hasLink } from '@/lib/links'
 
 /** Ссылки на страницы юридических документов — единый источник для футера и меню. */
 export const LEGAL_LINKS = [
@@ -58,15 +59,31 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Поддержка */}
+          {/* Поддержка (ссылки берём из env через src/lib/links.ts) */}
           <div>
             <h4 className="font-bold text-navy mb-3">Поддержка</h4>
             <ul className="space-y-2 text-sm">
-              <li>
-                <a href="https://t.me/nicetry_support" className="text-muted hover:text-blue transition-colors">
-                  Telegram
-                </a>
-              </li>
+              {hasLink(SUPPORT_URL) && (
+                <li>
+                  <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="text-muted hover:text-blue transition-colors">
+                    Поддержка в Telegram
+                  </a>
+                </li>
+              )}
+              {hasLink(TELEGRAM_CHANNEL_URL) && (
+                <li>
+                  <a href={TELEGRAM_CHANNEL_URL} target="_blank" rel="noopener noreferrer" className="text-muted hover:text-blue transition-colors">
+                    Telegram-канал
+                  </a>
+                </li>
+              )}
+              {hasLink(REVIEWS_URL) && (
+                <li>
+                  <a href={REVIEWS_URL} target="_blank" rel="noopener noreferrer" className="text-muted hover:text-blue transition-colors">
+                    Отзывы
+                  </a>
+                </li>
+              )}
               <li>
                 <a href={`mailto:${LEGAL.email}`} className="text-muted hover:text-blue transition-colors">
                   {LEGAL.email}

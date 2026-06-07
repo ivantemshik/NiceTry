@@ -13,7 +13,8 @@ import {
   TelegramApiError,
   type InlineButton,
 } from './client'
-import { WEBAPP_URL, SUPPORT_URL, REVIEWS_URL, BOT_USERNAME } from './config'
+import { WEBAPP_URL, SUPPORT_URL, REVIEWS_URL, TELEGRAM_CHANNEL_URL, BOT_USERNAME } from './config'
+import { hasLink } from '@/lib/links'
 import { createTgClaimCode, verifySiteLinkToken, type TelegramUser } from './verify'
 import { ensureTelegramUser, findUserByTelegramId, linkTelegramToUser } from './account'
 
@@ -46,15 +47,25 @@ const PRIVACY_URL = joinUrl(WEBAPP_URL, 'privacy')
 
 /** Главное меню (ТЗ §5.7). «Открыть магазин» и «Мои заказы» — Mini App с сайтом. */
 function mainMenu(): InlineButton[][] {
-  return [
+  const menu: InlineButton[][] = [
     [{ text: '🛍 Открыть магазин', web_app: { url: WEBAPP_URL } }],
     [{ text: '🧾 Мои заказы', web_app: { url: joinUrl(WEBAPP_URL, 'profile') } }],
     [{ text: '🔗 Код привязки', callback_data: 'link_code' }],
-    [
-      { text: '⭐️ Отзывы', url: REVIEWS_URL },
-      { text: '🆘 Поддержка', url: SUPPORT_URL },
-    ],
   ]
+
+  // Отзывы/Поддержка — только если ссылки заданы в env (иначе Telegram отклонит
+  // кнопку с пустым url). Кладём их в один ряд.
+  const helpRow: InlineButton[] = []
+  if (hasLink(REVIEWS_URL)) helpRow.push({ text: '⭐️ Отзывы', url: REVIEWS_URL })
+  if (hasLink(SUPPORT_URL)) helpRow.push({ text: '🆘 Поддержка', url: SUPPORT_URL })
+  if (helpRow.length) menu.push(helpRow)
+
+  // Telegram-канал бренда — отдельным рядом, если задан.
+  if (hasLink(TELEGRAM_CHANNEL_URL)) {
+    menu.push([{ text: '📣 Наш канал', url: TELEGRAM_CHANNEL_URL }])
+  }
+
+  return menu
 }
 
 function greeting(name?: string): string {

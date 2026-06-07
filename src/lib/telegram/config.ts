@@ -28,11 +28,10 @@ export const WEBHOOK_SECRET =
   process.env.TELEGRAM_WEBHOOK_SECRET ||
   (BOT_TOKEN ? `whk_${BOT_TOKEN.split(':')[0]}` : '')
 
-/** Ссылка на поддержку (Telegram). Плейсхолдер — уточнит заказчик (ТЗ §8.2). */
-export const SUPPORT_URL = process.env.TELEGRAM_SUPPORT_URL || 'https://t.me/asdadawdawdadbot'
-
-/** Канал с отзывами (ТЗ §5.9). Плейсхолдер — уточнит заказчик. */
-export const REVIEWS_URL = process.env.TELEGRAM_REVIEWS_URL || 'https://t.me/asdadawdawdadbot'
+// Публичные ссылки бренда (поддержка, отзывы, канал) живут в едином модуле
+// src/lib/links.ts — он читает их из env и безопасен для клиента. Реэкспортируем
+// для серверного кода бота/уведомлений, чтобы не плодить источники правды.
+export { SUPPORT_URL, REVIEWS_URL, TELEGRAM_CHANNEL_URL } from '@/lib/links'
 
 /** Срок жизни токена привязки аккаунта (15 минут). */
 export const LINK_TOKEN_TTL_SEC = 15 * 60

@@ -11,6 +11,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { sendMessage, TelegramApiError, type InlineButton } from './client'
 import { isConfigured, WEBAPP_URL, REVIEWS_URL } from './config'
+import { hasLink } from '@/lib/links'
 import { formatRub } from '@/lib/utils'
 
 async function telegramIdOf(userId: string): Promise<number | null> {
@@ -73,7 +74,9 @@ export async function notifyReviewRequest(userId: string, order: { order_number:
     '',
     'Будем благодарны за отзыв — это помогает другим покупателям и развивает магазин.',
   ].join('\n')
-  return notifyUser(userId, text, { buttons: [[{ text: '✍️ Оставить отзыв', url: REVIEWS_URL }]] })
+  // Кнопку «Оставить отзыв» показываем только если ссылка на отзывы задана в env.
+  const buttons = hasLink(REVIEWS_URL) ? [[{ text: '✍️ Оставить отзыв', url: REVIEWS_URL }]] : undefined
+  return notifyUser(userId, text, buttons ? { buttons } : undefined)
 }
 
 /** Пополнение внутреннего баланса. */

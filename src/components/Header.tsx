@@ -9,6 +9,7 @@ import { useCart } from '@/hooks/useCart'
 import { useTelegram } from '@/hooks/useTelegram'
 import { LEGAL_LINKS } from '@/components/Footer'
 import ProxyPurchase from '@/components/ProxyPurchase'
+import { TELEGRAM_CHANNEL_URL, hasLink } from '@/lib/links'
 
 /**
  * Шапка сайта по эталону index.html:
@@ -150,7 +151,15 @@ export default function Header() {
               <path d="M21 4L3 11l5 2 2 6 3-4 5 4z" />
             </svg>
             <span>Новые дропы ключей и промокоды каждый день —</span>
-            <Link href="/catalog">подпишись на Telegram-канал NiceTry</Link>
+            {/* Ссылка на Telegram-канал из env (NEXT_PUBLIC_TELEGRAM_CHANNEL_URL);
+                пока не задана — ведём в каталог, чтобы полоса оставалась кликабельной. */}
+            {hasLink(TELEGRAM_CHANNEL_URL) ? (
+              <a href={TELEGRAM_CHANNEL_URL} target="_blank" rel="noopener noreferrer">
+                подпишись на Telegram-канал NiceTry
+              </a>
+            ) : (
+              <Link href="/catalog">подпишись на Telegram-канал NiceTry</Link>
+            )}
             <button className="close" aria-label="Закрыть" onClick={() => setTopbar(false)}>
               <svg className="ic ic-sm" viewBox="0 0 24 24">
                 <path d="M6 6l12 12M18 6L6 18" />
