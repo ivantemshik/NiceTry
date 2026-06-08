@@ -60,7 +60,8 @@
 ## ✅ ГОТОВО. ЧТО СДЕЛАТЬ СЕРГЕЮ (вне кода)
 
 1. **Supabase SQL Editor** — применить миграцию `migrations/2026-06-08_pay4game.sql`
-   (таблицы `payments`, `payment_webhooks`).
+   (таблицы `payments`, `payment_webhooks`). [FIX: функция триггера = `update_updated_at()`,
+   миграция создаёт её идемпотентно — ошибки 42883 больше не будет.]
 2. **Панель pay4game «Настройки»:**
    - «Уведомления» (webhook) = `https://www.nicetry.guru/api/pay4game/webhook`
    - «Страница результата платежа» = `https://www.nicetry.guru/pay/return/#invoice_id#`

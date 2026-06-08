@@ -37,10 +37,19 @@ CREATE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice_id);
 CREATE INDEX IF NOT EXISTS idx_payments_uuid    ON payments(uuid);
 CREATE INDEX IF NOT EXISTS idx_payments_status  ON payments(status);
 
--- updated_at автообновление (функция update_updated_at_column уже есть в основной схеме).
+-- updated_at автообновление. Функция update_updated_at() уже есть в основной схеме
+-- (supabase_schema.sql). На случай чистой базы — создаём её идемпотентно.
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 DROP TRIGGER IF EXISTS payments_updated_at ON payments;
 CREATE TRIGGER payments_updated_at BEFORE UPDATE ON payments
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================
 -- 2. ЛОГ ВЕБХУКОВ (идемпотентность + разбор)
