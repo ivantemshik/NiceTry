@@ -121,21 +121,50 @@ export class Pay4gameError extends Error {
   }
 }
 
+/**
+ * Базовые заголовки. Content-Type НЕ ставим здесь: пустое тело с `application/json` некоторые
+ * бэкенды (Laravel и пр.) трактуют как «JSON-вход пуст» → все поля «не переданы» → 422. Поэтому
+ * Content-Type выставляем поштучно, только когда реально шлём тело (см. doFetch ниже).
+ */
 function buildHeaders(cfg: Pay4gameConfig, signature?: string): Record<string, string> {
   const h: Record<string, string> = {
     Authorization: `Bearer ${cfg.apiToken}`,
     Accept: 'application/json',
-    'Content-Type': 'application/json',
   }
   if (signature) h['X-REQUEST-SIGNATURE'] = signature
   if (cfg.projectId) h['X-REQUEST-PROJECT'] = cfg.projectId
   return h
 }
 
+/** Достать человекочитаемую причину ошибки из тела ответа pay4game (разные формы). */
+function extractError(json: unknown): string {
+  if (!json) return ''
+  if (typeof json === 'string') return json.slice(0, 300)
+  if (typeof json !== 'object') return ''
+  const o = json as Record<string, unknown>
+  // Laravel-валидация: { message, errors: { field: ["…"] } } — собираем сами поля, т.к. в
+  // payment/create pay4game «message» иногда пустой, а конкретика лежит в errors.
+  if (o.errors && typeof o.errors === 'object') {
+    const parts: string[] = []
+    for (const [field, val] of Object.entries(o.errors as Record<string, unknown>)) {
+      const text = Array.isArray(val) ? val.join(', ') : String(val)
+      parts.push(`${field}: ${text}`)
+    }
+    if (parts.length) return parts.join('; ')
+  }
+  for (const key of ['message', 'error', 'detail', 'description']) {
+    const v = o[key]
+    if (v && typeof v === 'string') return v
+  }
+  return ''
+}
+
 /**
- * POST к pay4game. Параметры по доке идут query-string. При 422 (ошибка входных данных)
- * пробуем повтор с тем же набором параметров в JSON-теле (некоторые инсталляции ждут body).
- * `version` — 'v1' | 'v2'.
+ * POST к pay4game. Параметры по доке идут query-string. При 422 (ошибка входных данных) повторяем
+ * с теми же параметрами ОДНОВРЕМЕННО в query-string И в JSON-теле (строгий супермножество первого
+ * запроса — некоторые инсталляции читают тело). Раньше повтор слал только тело без query, из-за чего
+ * для query-string-API параметры «терялись» и второй 422 приходил уже по другой причине, маскируя
+ * исходную ошибку. `version` — 'v1' | 'v2'.
  */
 async function post(
   cfg: Pay4gameConfig,
@@ -151,15 +180,21 @@ async function post(
   const qs = new URLSearchParams(clean).toString()
   const base = `${cfg.apiBase}/${version}/${path}`
   const headers = buildHeaders(cfg, signature)
+  const url = qs ? `${base}?${qs}` : base
 
-  const doFetch = async (url: string, body?: string): Promise<Response> =>
-    fetch(url, { method: 'POST', headers, body, cache: 'no-store' })
+  const doFetch = async (body?: string): Promise<Response> =>
+    fetch(url, {
+      method: 'POST',
+      headers: body ? { ...headers, 'Content-Type': 'application/json' } : headers,
+      body,
+      cache: 'no-store',
+    })
 
   // 1) query-string (как в curl-примерах доки)
-  let res = await doFetch(qs ? `${base}?${qs}` : base)
+  let res = await doFetch()
   if (res.status === 422) {
-    // 2) fallback: те же параметры в JSON-теле
-    res = await doFetch(base, JSON.stringify(clean))
+    // 2) повтор: те же параметры в query И в JSON-теле (строгий супермножество, не теряем query)
+    res = await doFetch(JSON.stringify(clean))
   }
 
   const text = await res.text()
@@ -170,11 +205,10 @@ async function post(
     json = text
   }
   if (!res.ok) {
-    const fromBody =
-      json && typeof json === 'object' && 'message' in json
-        ? String((json as { message: unknown }).message)
-        : ''
-    const msg = fromBody || `pay4game ${path} → HTTP ${res.status}`
+    const fromBody = extractError(json)
+    // Логируем реальную причину на сервере (тело pay4game), чтобы 422 перестал быть «немым».
+    console.error(`[pay4game] ${path} → HTTP ${res.status}`, fromBody || text || '(пустое тело)')
+    const msg = fromBody ? `${fromBody}` : `pay4game ${path} → HTTP ${res.status}`
     throw new Pay4gameError(res.status, msg, json)
   }
   return json
