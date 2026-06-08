@@ -53,7 +53,7 @@ export async function POST(
     }
 
     // Обновляем stock товара
-    const { data: availableKeys } = await supabase
+    const { count: availableKeys } = await supabase
       .from('product_keys')
       .select('id', { count: 'exact', head: true })
       .eq('product_id', params.id)

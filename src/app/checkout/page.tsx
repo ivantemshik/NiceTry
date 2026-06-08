@@ -137,10 +137,19 @@ export default function CheckoutPage() {
         return
       }
       clearCart()
-      // БОЕВОЙ режим: платёж асинхронный — переходим на страницу ожидания оплаты (QR/ссылка).
-      if (data.mode === 'live' && data.pay_url) {
-        router.push(data.pay_url)
-        return
+      // БОЕВОЙ режим: платёж асинхронный. Если pay4game вернул готовую платёжную страницу
+      // (sbp_type=url / card / sberpay) — уводим на неё; после оплаты вернёт на return_url
+      // (/pay/return/[invoice_id]), где статус опросится и заказ доведётся до выдачи.
+      // Если url нет — фолбэк на встроенную страницу ожидания с QR из вебхука inform.
+      if (data.mode === 'live') {
+        if (data.url) {
+          window.location.href = data.url
+          return
+        }
+        if (data.pay_url) {
+          router.push(data.pay_url)
+          return
+        }
       }
       if (data.flow === 'session') {
         // Сессия активна — заказ уже в аккаунте, ник не нужен.
