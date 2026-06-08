@@ -110,7 +110,19 @@ export default function SteamTopupClient({ config, sessionEmail }: Props) {
                 className={`btn ${region === r.code ? 'btn-primary' : 'btn-ghost'} btn-sm`}
                 aria-pressed={region === r.code}
               >
-                <span aria-hidden style={{ marginRight: 6 }}>{r.flag}</span>
+                {r.countryCode ? (
+                  // Картинка флага (emoji-флаги не рендерятся на Windows). alt=код → деградация в текст.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`https://flagcdn.com/w40/${r.countryCode}.png`}
+                    width={20}
+                    height={15}
+                    alt={r.code}
+                    style={{ marginRight: 6, borderRadius: 2, objectFit: 'cover', verticalAlign: '-3px' }}
+                  />
+                ) : (
+                  <span aria-hidden style={{ marginRight: 6 }}>🌍</span>
+                )}
                 {r.label}
               </button>
             ))}

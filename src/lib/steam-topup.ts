@@ -14,19 +14,22 @@ export interface SteamRegion {
   code: string
   /** Человекочитаемое название. */
   label: string
-  /** Эмодзи-флаг для UI. */
-  flag: string
+  /**
+   * ISO 3166-1 alpha-2 (нижний регистр) — для картинки флага в UI. Пусто ('') у «Другого региона»
+   * (без флага). Emoji-флаги не используем: на Windows они не отрисовываются (показываются как «RU»).
+   */
+  countryCode: string
   /** Валюта кошелька в этом регионе (информативно). */
   walletCurrency: string
 }
 
 /** Список регионов. RU — по умолчанию (первый). */
 export const STEAM_REGIONS: SteamRegion[] = [
-  { code: 'RU', label: 'Россия', flag: '🇷🇺', walletCurrency: '₽' },
-  { code: 'KZ', label: 'Казахстан', flag: '🇰🇿', walletCurrency: '₸' },
-  { code: 'UA', label: 'Украина', flag: '🇺🇦', walletCurrency: '₴' },
-  { code: 'BY', label: 'Беларусь', flag: '🇧🇾', walletCurrency: 'Br' },
-  { code: 'OTHER', label: 'Другой регион', flag: '🌍', walletCurrency: '—' },
+  { code: 'RU', label: 'Россия', countryCode: 'ru', walletCurrency: '₽' },
+  { code: 'KZ', label: 'Казахстан', countryCode: 'kz', walletCurrency: '₸' },
+  { code: 'UA', label: 'Украина', countryCode: 'ua', walletCurrency: '₴' },
+  { code: 'BY', label: 'Беларусь', countryCode: 'by', walletCurrency: 'Br' },
+  { code: 'OTHER', label: 'Другой регион', countryCode: '', walletCurrency: '—' },
 ]
 
 export const DEFAULT_REGION = STEAM_REGIONS[0].code
