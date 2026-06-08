@@ -53,8 +53,8 @@ export function getSteamTopupConfig(env: Record<string, string | undefined> = pr
     const n = Number(v)
     return Number.isFinite(n) && n > 0 ? n : def
   }
-  // pay4game допускает steam_amount 20–50000 ₽; практический нижний порог Steam берём 100 ₽.
-  const min = num(env.STEAM_TOPUP_MIN, 100)
+  // pay4game допускает steam_amount 20–50000 ₽; берём минимум платёжной системы — 20 ₽.
+  const min = num(env.STEAM_TOPUP_MIN, 20)
   const max = num(env.STEAM_TOPUP_MAX, 50000)
   const commissionPercent = num(env.STEAM_TOPUP_COMMISSION_PERCENT, 3)
   return { min, max: Math.max(min, max), commissionPercent }

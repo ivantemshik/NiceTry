@@ -81,11 +81,11 @@
     кнопки 500/1000/2000/3000/5000) · логин Steam · email (только для гостя) · живой расчёт комиссии
     и итога → POST `/api/steam/topup` → переход на страницу оплаты `/pay/{invoice}`.
   - Денежная модель: пользователь вводит сумму пополнения в ₽ (зачислится в кошелёк) = `steam_amount`
-    (как в доке pay4game, дефолт-лимиты 100–50000 ₽). Комиссия 3% сверху → к оплате
+    (как в доке pay4game, дефолт-лимиты 20–50000 ₽). Комиссия 3% сверху → к оплате
     `charge = round(steamAmount) + round(steamAmount*3%)`; именно `charge` идёт в pay4game как `amount`,
     `steam_amount` — отдельным полем. Регион — метаданные store-региона (в payment/create поля нет),
     пишем в `order_items.form_data` и описание. Лимиты/комиссия — env `STEAM_TOPUP_MIN/MAX/COMMISSION_PERCENT`
-    (дефолты 100/50000/3), читаются в `getSteamTopupConfig`.
+    (дефолты 20/50000/3), читаются в `getSteamTopupConfig`. (Минимум снижен до 20 ₽ — порог pay4game.)
   - Файлы:
     - `src/lib/steam-topup.ts` — pure (регионы, getSteamTopupConfig, commissionRub, chargeRub,
       normalizeSteamAccount, isValidSteamAccount, validateTopup). Без I/O — тестируемо.

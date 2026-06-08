@@ -28,7 +28,7 @@ describe('steam-topup: регионы', () => {
 describe('steam-topup: конфиг из env', () => {
   it('дефолты при пустом env', () => {
     const cfg = getSteamTopupConfig({})
-    expect(cfg).toEqual({ min: 100, max: 50000, commissionPercent: 3 })
+    expect(cfg).toEqual({ min: 20, max: 50000, commissionPercent: 3 })
   })
 
   it('читает значения из env и чинит max < min', () => {
@@ -44,7 +44,7 @@ describe('steam-topup: конфиг из env', () => {
 
   it('игнорирует мусор/неположительные значения', () => {
     const cfg = getSteamTopupConfig({ STEAM_TOPUP_MIN: 'abc', STEAM_TOPUP_MAX: '-5', STEAM_TOPUP_COMMISSION_PERCENT: '0' })
-    expect(cfg).toEqual({ min: 100, max: 50000, commissionPercent: 3 })
+    expect(cfg).toEqual({ min: 20, max: 50000, commissionPercent: 3 })
   })
 })
 
@@ -107,7 +107,7 @@ describe('steam-topup: validateTopup', () => {
   })
 
   it('сумма вне лимитов → ошибка', () => {
-    expect(validateTopup({ account: 'player_1', region: 'RU', amount: 50 }, cfg).ok).toBe(false)
+    expect(validateTopup({ account: 'player_1', region: 'RU', amount: 10 }, cfg).ok).toBe(false)
     expect(validateTopup({ account: 'player_1', region: 'RU', amount: 99999 }, cfg).ok).toBe(false)
     expect(validateTopup({ account: 'player_1', region: 'RU', amount: 0 }, cfg).ok).toBe(false)
     expect(validateTopup({ account: 'player_1', region: 'RU', amount: 'abc' }, cfg).ok).toBe(false)
