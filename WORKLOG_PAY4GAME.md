@@ -8,7 +8,9 @@
 - **amount** — единый формат: строка с 2 знаками (`amount.toFixed(2)`), И в подписи, И в параметре запроса.
 - **Подпись запроса**: `signPay4game(data)=HMAC_SHA256(SECRET, data).hex`. payment/create: `invoice_id:amount:email`.
 - **Live ≠ mock**: в live заказ создаётся в статусе `new` (pending), выдача — ТОЛЬКО из вебхука `status` при `success && hold=0`. Mock-путь не трогаем.
-- **Параметры запросов** к API шлём query-string (как в доке curl); при 422 — повтор с JSON-телом.
+- **Параметры запросов** к API шлём JSON-телом + `Content-Type: application/json` (как требует дока,
+  раздел 1–2). При 422 — фолбэк-повтор в query-string. Раньше первым шёл query-string с пустым телом —
+  Laravel видел пустой JSON-вход → 422 (часто немой). Типы в теле сохраняем (risk — integer, amount — строка).
 - Ключи только из `process.env`, fail-fast в live если не заданы.
 
 ## Соответствие полей панели pay4game «Настройки»

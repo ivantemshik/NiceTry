@@ -122,9 +122,8 @@ export class Pay4gameError extends Error {
 }
 
 /**
- * Базовые заголовки. Content-Type НЕ ставим здесь: пустое тело с `application/json` некоторые
- * бэкенды (Laravel и пр.) трактуют как «JSON-вход пуст» → все поля «не переданы» → 422. Поэтому
- * Content-Type выставляем поштучно, только когда реально шлём тело (см. doFetch ниже).
+ * Базовые заголовки (Authorization/Accept/подпись/проект). Content-Type здесь НЕ ставим — основной
+ * запрос (см. post ниже) добавляет `application/json` к JSON-телу сам; query-фолбэк идёт без тела.
  */
 function buildHeaders(cfg: Pay4gameConfig, signature?: string): Record<string, string> {
   const h: Record<string, string> = {
@@ -160,11 +159,13 @@ function extractError(json: unknown): string {
 }
 
 /**
- * POST к pay4game. Параметры по доке идут query-string. При 422 (ошибка входных данных) повторяем
- * с теми же параметрами ОДНОВРЕМЕННО в query-string И в JSON-теле (строгий супермножество первого
- * запроса — некоторые инсталляции читают тело). Раньше повтор слал только тело без query, из-за чего
- * для query-string-API параметры «терялись» и второй 422 приходил уже по другой причине, маскируя
- * исходную ошибку. `version` — 'v1' | 'v2'.
+ * POST к pay4game. По доке (раздел 1–2 pay4game_API.pdf) запрос — JSON-тело с заголовком
+ * `Content-Type: application/json`. ПОЭТОМУ основной транспорт — JSON-тело: параметры сериализуем
+ * с СОХРАНЕНИЕМ типов (risk — integer, amount — строка под подпись). Раньше слали query-string с
+ * пустым телом и без Content-Type — Laravel на той стороне видел пустой JSON-вход, считал все
+ * обязательные поля «не переданными» и отвечал 422 (часто с пустым телом, оттого «немым»). Если
+ * JSON-тело всё же даёт 422 — повторяем теми же параметрами в query-string (на случай инсталляций,
+ * читающих query). `version` — 'v1' | 'v2'.
  */
 async function post(
   cfg: Pay4gameConfig,
@@ -173,28 +174,29 @@ async function post(
   params: Record<string, string | number | undefined>,
   signature?: string
 ): Promise<unknown> {
+  // Тело JSON — с сохранением исходных типов (числа остаются числами), без пустых/undefined полей.
+  const jsonBody: Record<string, string | number> = {}
+  // Query-фолбэк — всё строкой (URLSearchParams иначе не умеет).
   const clean: Record<string, string> = {}
   for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== null && v !== '') clean[k] = String(v)
+    if (v === undefined || v === null || v === '') continue
+    jsonBody[k] = v
+    clean[k] = String(v)
   }
   const qs = new URLSearchParams(clean).toString()
   const base = `${cfg.apiBase}/${version}/${path}`
   const headers = buildHeaders(cfg, signature)
-  const url = qs ? `${base}?${qs}` : base
 
-  const doFetch = async (body?: string): Promise<Response> =>
-    fetch(url, {
-      method: 'POST',
-      headers: body ? { ...headers, 'Content-Type': 'application/json' } : headers,
-      body,
-      cache: 'no-store',
-    })
-
-  // 1) query-string (как в curl-примерах доки)
-  let res = await doFetch()
-  if (res.status === 422) {
-    // 2) повтор: те же параметры в query И в JSON-теле (строгий супермножество, не теряем query)
-    res = await doFetch(JSON.stringify(clean))
+  // 1) основной путь — JSON-тело + Content-Type (как требует дока)
+  let res = await fetch(base, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(jsonBody),
+    cache: 'no-store',
+  })
+  if (res.status === 422 && qs) {
+    // 2) повтор: те же параметры в query-string (фолбэк для инсталляций, читающих query)
+    res = await fetch(`${base}?${qs}`, { method: 'POST', headers, cache: 'no-store' })
   }
 
   const text = await res.text()
@@ -206,9 +208,15 @@ async function post(
   }
   if (!res.ok) {
     const fromBody = extractError(json)
+    const raw = text ? text.trim().slice(0, 300) : ''
     // Логируем реальную причину на сервере (тело pay4game), чтобы 422 перестал быть «немым».
-    console.error(`[pay4game] ${path} → HTTP ${res.status}`, fromBody || text || '(пустое тело)')
-    const msg = fromBody ? `${fromBody}` : `pay4game ${path} → HTTP ${res.status}`
+    console.error(`[pay4game] ${path} → HTTP ${res.status}`, raw || '(пустое тело)')
+    // В сообщение ВСЕГДА кладём детали: распарсенную причину или сырой текст; если тело пустое —
+    // явно об этом говорим (пустой 422 ≠ Laravel-валидация: проверь токен/проект/доступ к методу).
+    const detail = fromBody || raw
+    const msg = detail
+      ? `${path} → HTTP ${res.status}: ${detail}`
+      : `${path} → HTTP ${res.status} (пустое тело ответа)`
     throw new Pay4gameError(res.status, msg, json)
   }
   return json
