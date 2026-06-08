@@ -26,6 +26,19 @@ vi.mock('@/lib/approute', () => ({
   AppRouteStatusCode: { UPSTREAM_ERROR: 'UPSTREAM_ERROR' },
 }))
 
+// Dessly мокаем — проверяем, что form_data позиции реально доходит до выдачи гифта.
+const sendGift = vi.fn()
+const resolvePackage = vi.fn()
+const getTransactionStatus = vi.fn()
+const isSteamInviteUrl = vi.fn()
+vi.mock('@/lib/dessly', () => ({
+  sendGift: (...a: unknown[]) => sendGift(...(a as [])),
+  resolvePackage: (...a: unknown[]) => resolvePackage(...(a as [])),
+  getTransactionStatus: (...a: unknown[]) => getTransactionStatus(...(a as [])),
+  isSteamInviteUrl: (...a: unknown[]) => isSteamInviteUrl(...(a as [])),
+  DesslyError: class DesslyError extends Error {},
+}))
+
 import { markOrderPaidAndDeliver } from '@/lib/payments/fulfillment'
 
 describe('markOrderPaidAndDeliver (live выдача)', () => {
@@ -98,6 +111,47 @@ describe('markOrderPaidAndDeliver (live выдача)', () => {
     expect(itemUpdate.payload).toMatchObject({ voucher_code: 'REAL-AR-CODE', delivery_status: 'delivered' })
     const orderUpdates = db.calls!.filter((c) => c.table === 'orders' && c.op === 'update')
     expect(orderUpdates.some((c) => (c.payload as any)?.status === 'delivered')).toBe(true)
+  })
+
+  it('instant Dessly: form_data позиции доходит до выдачи гифта, заказ delivered', async () => {
+    isSteamInviteUrl.mockReturnValue(true)
+    sendGift.mockResolvedValue({ status: 'completed', transactionId: 'tx5', giftLink: 'https://gift/link5' })
+    db = {
+      tables: {
+        orders: [
+          { data: { id: 'o5', status: 'new', promo_code_id: null } },
+          { data: [{ id: 'o5' }] },
+          { data: null },
+        ],
+        order_items: [
+          {
+            data: [
+              {
+                id: 'it5',
+                product_id: 'p5',
+                quantity: 1,
+                voucher_code: null,
+                delivery_status: 'pending',
+                // form_data, сохранённый на чекауте: invite-ссылка + издание.
+                form_data: { recipient: 'https://s.team/p/abc-def', region: 'RU', package_id: '5' },
+              },
+            ],
+          },
+          { data: null }, // update позиции
+        ],
+        products: [{ data: { id: 'p5', type: 'instant', supplier: 'dessly', denomination_id: 'g5' } }],
+      },
+      calls: [],
+    }
+
+    const res = await markOrderPaidAndDeliver('inv-5', 'uuid-5')
+    expect(res.delivered).toBe(true)
+    // form_data (invite-ссылка) реально дошло до sendGift.
+    expect(sendGift).toHaveBeenCalledWith(
+      expect.objectContaining({ inviteUrl: 'https://s.team/p/abc-def', packageId: 5, region: 'RU' })
+    )
+    const itemUpdate = db.calls!.find((c) => c.table === 'order_items' && c.op === 'update')!
+    expect(itemUpdate.payload).toMatchObject({ voucher_code: 'https://gift/link5', delivery_status: 'delivered' })
   })
 
   it('instant без свободных ключей: позиция остаётся в обработке, заказ не delivered', async () => {

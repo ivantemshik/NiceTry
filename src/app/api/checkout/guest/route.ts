@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
       product: Record<string, unknown>
       quantity: number
       linePrice: number
+      formData?: Record<string, string>
     }
     const lines: Line[] = []
     for (const item of items) {
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
         linePrice = clientHint > 0 ? clientHint * qty.quantity : 0
       }
 
-      lines.push({ product, quantity: qty.quantity, linePrice })
+      lines.push({ product, quantity: qty.quantity, linePrice, formData: item.form_data })
     }
 
     const totalAmount = lines.reduce((s, l) => s + l.linePrice, 0)
@@ -209,14 +210,24 @@ export async function POST(request: NextRequest) {
       for (const line of lines) {
         const pid = String(line.product.id ?? '')
         const pname = String(line.product.name ?? '')
-        await supabaseAdmin.from('order_items').insert({
+        const baseItem = {
           order_id: order.id,
           product_id: isUuid(pid) ? pid : null,
           product_name: pname,
           quantity: line.quantity,
           price: line.linePrice,
-          delivery_status: 'pending',
-        })
+          delivery_status: 'pending' as const,
+        }
+        // form_data нужно вебхуку для отложенной выдачи Dessly (invite-ссылка/регион/издание).
+        // Защита от рассинхрона деплоя и миграции: если колонки form_data ещё нет в БД, повторяем
+        // вставку без неё (Dessly-выдача тогда не сработает до миграции, но заказ/позиция создаются).
+        const { error: itemErr } = await supabaseAdmin
+          .from('order_items')
+          .insert({ ...baseItem, form_data: line.formData ?? null })
+        if (itemErr) {
+          console.warn('[checkout/guest] (live) order_item insert с form_data упал, повтор без него:', itemErr.message)
+          await supabaseAdmin.from('order_items').insert(baseItem)
+        }
       }
 
       // Создаём платёж в pay4game. invoice_id = referenceId.

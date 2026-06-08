@@ -5,8 +5,9 @@
 // повторные вебхуки/ретраи ничего не дублируют.
 //
 // ОБЛАСТЬ: instant-товары выдаются РЕАЛЬНО через общий deliverInstant (тот же модуль, что и
-// /api/orders/create) — AppRoute (shop), Dessly (gift) или локальные ключи из product_keys.
-// topup_auto/topup_manual/manual и позиции без product_id остаются 'pending' (закрывает менеджер).
+// /api/orders/create) — AppRoute (shop), Dessly (gift, по form_data позиции) или локальные ключи
+// из product_keys. topup_auto/topup_manual/manual и позиции без product_id остаются 'pending'
+// (закрывает менеджер). form_data сохраняется на чекауте (см. checkout/guest) — он нужен Dessly.
 //
 // УСТОЙЧИВОСТЬ: сбой/задержка поставщика в выдаче НЕ выбрасывает исключение — иначе заказ уже
 // 'paid', вебхук вернул бы 5xx, а ретрай увидел бы статус 'paid' и пропустил выдачу. Вместо этого
@@ -65,7 +66,7 @@ export async function markOrderPaidAndDeliver(invoiceId: string, paymentUuid?: s
   // если ВСЕ позиции выданы; иначе оставляем 'paid' (в работе).
   const { data: items } = await supabaseAdmin
     .from('order_items')
-    .select('id, product_id, quantity, voucher_code, delivery_status')
+    .select('id, product_id, quantity, voucher_code, delivery_status, form_data')
     .eq('order_id', order.id)
 
   let allDelivered = true
@@ -91,9 +92,10 @@ export async function markOrderPaidAndDeliver(invoiceId: string, paymentUuid?: s
     }
 
     try {
-      // referenceId выдачи = invoice_id (= supplier_reference_id заказа). formData у live-гостя
-      // нет — для AppRoute оно и не нужно; Dessly без invite-ссылки уйдёт в ошибку → останется pending.
-      const codes = await deliverInstant(product as unknown as Product, Number(it.quantity) || 1, invoiceId)
+      // referenceId выдачи = invoice_id (= supplier_reference_id заказа). form_data сохранён на
+      // чекауте (нужен Dessly: invite-ссылка/регион/издание); для AppRoute/ключей он не требуется.
+      const formData = (it.form_data as Record<string, string> | null) ?? undefined
+      const codes = await deliverInstant(product as unknown as Product, Number(it.quantity) || 1, invoiceId, formData)
       if (codes.length > 0) {
         await supabaseAdmin
           .from('order_items')
